@@ -1,0 +1,6 @@
+@ERP.WorkflowwServices.API_HostAddress = http://localhost:5103
+
+GET {{ERP.WorkflowwServices.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

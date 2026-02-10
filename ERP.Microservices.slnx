@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="AdminDashboard/ERP.AdminDashboard.API.csproj" />
+  <Project Path="ERP.Shared/ERP.Shared.csproj" Id="6714de22-f467-4abf-827b-27d0d545fc18" />
+  <Project Path="ERP.WorkflowwServices.API/ERP.WorkflowwServices.API.csproj" Id="d7a1715e-9e5b-4222-9343-69a9af5042fb" />
+</Solution>
