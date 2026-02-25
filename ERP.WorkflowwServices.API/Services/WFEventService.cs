@@ -1,6 +1,7 @@
 ﻿using ERP.WorkflowwServices.API.DTOs.FilterModels;
 using ERP.WorkflowwServices.API.Interfaces;
 using ERP.WorkflowwServices.API.Models;
+using ERP.WorkflowwServices.API.Repositories.Interfaces;
 using ERP.WorkflowwServices.API.Services.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -9,160 +10,110 @@ namespace ERP.WorkflowwServices.API.Services
 {
     public class WFEventService : IWFEvent
     {
-        IConfiguration _configuration;
-        private bool disposedValue;
-        private readonly WorkflowDbContext _context;
-        private IHttpContextAccessor _httpContextAccessor;
-        public WFEventService(WorkflowDbContext context, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        private readonly IRepository<WFEvent, Guid> _repository;
+        public WFEventService(IRepository<WFEvent, Guid> repository)
         {
-            _context = context;
-            _configuration = configuration; _httpContextAccessor = httpContextAccessor;
+            _repository = repository;
         }
 
         public async Task<int> AddWFEvent(WFEvent item)
         {
-            try
-            {
-                if (item.EventId == 0)
-                {
-                    var exists = await _context.WFEvents.AnyAsync(x => x.TableName == item.TableName);
-                    if (exists)
-                        return -1;
+            await _repository.AddAsync(item);
+            await _repository.SaveChangesAsync();
+            return item.EventId;
 
-                    await _context.WFEvents.AddAsync(item);
-                    await _context.SaveChangesAsync();
-                    return item.EventId;
-                }
-                /* UPDATE */
-                var existing = await _context.WFEvents.FirstOrDefaultAsync(x => x.EventId == item.EventId);
-                if (existing == null)
-                    return -2;
+            #region Not Use            
+            //try
+            //{
+            //    if (item.EventId == 0)
+            //    {
+            //        var exists = await _context.WFEvents.AnyAsync(x => x.TableName == item.TableName);
+            //        if (exists)
+            //            return -1;
 
-                existing.Description = item.Description;
-                existing.TableName = item.TableName;
-                existing.PageId = item.PageId;
-                existing.CompanyId = item.CompanyId;
-                existing.MultiUse = item.MultiUse;
-                existing.CheckShow = item.CheckShow;
-                existing.ModifiedBy = item.ModifiedBy;
-                existing.ModifiedDate = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
+            //        await _context.WFEvents.AddAsync(item);
+            //        await _context.SaveChangesAsync();
+            //        return item.EventId;
+            //    }
+            //    /* UPDATE */
+            //    var existing = await _context.WFEvents.FirstOrDefaultAsync(x => x.EventId == item.EventId);
+            //    if (existing == null)
+            //        return -2;
 
-                return existing.EventId;
-            }
-            catch (Exception)
-            {
-                return -10;
-            }
+            //    existing.Description = item.Description;
+            //    existing.TableName = item.TableName;
+            //    existing.PageId = item.PageId;
+            //    existing.CompanyId = item.CompanyId;
+            //    existing.MultiUse = item.MultiUse;
+            //    existing.CheckShow = item.CheckShow;
+            //    existing.ModifiedBy = item.ModifiedBy;
+            //    existing.ModifiedDate = DateTime.UtcNow;
+            //    await _context.SaveChangesAsync();
+
+            //    return existing.EventId;
+            //}
+            //catch (Exception)
+            //{
+            //    return -10;
+            //}
+            #endregion
         }
 
         public async Task<int> ToggleDeleteWFEventsAsync(List<int> eventIds, int userId)
         {
-            try
+            var events = await _repository.FindAsync(x => eventIds.Contains(x.EventId));
+            foreach (var item in events)
             {
-                var events = await _context.WFEvents.Where(x => eventIds.Contains(x.EventId)).ToListAsync();
-                foreach (var item in events)
-                {
-                    if (item.IsDeleted == false)
-                        item.IsDeleted = true;
-                    else
-                        item.IsDeleted = false;
-                    item.ModifiedBy = userId;
-                    item.ModifiedDate = DateTime.UtcNow;
-                }
-
-                await _context.SaveChangesAsync();
-
-                return events.Count;
+                item.IsDeleted = !item.IsDeleted;
+                _repository.Update(item);
             }
-            catch (Exception)
-            {
-                return -10;
-            }
+
+            await _repository.SaveChangesAsync();
+
+            return events.Count();
         }
 
         public async Task<(IEnumerable<WFEvent> Data, int Total)> FilterWFEventAsync(WorkFlowFilterModel paging, string? keyword)
         {
-            bool checkStatus = paging.Status == 1;
-            var query = _context.WFEvents.AsQueryable();
-            query = query.Where(t => t.IsDeleted == checkStatus);
+            var query = _repository.Query();
+
             if (!string.IsNullOrWhiteSpace(keyword))
-            {
-                query = query.Where(t => !string.IsNullOrEmpty(t.TableName) && t.TableName.Contains(keyword));
-            }
-
-            /* Company filter */
-            if (paging.CompanyId.HasValue)
-            {
-                query = query.Where(t => t.CompanyId == paging.CompanyId);
-            }
-
-            /* Page filter */
-            if (paging.PageId.HasValue)
-            {
-                query = query.Where(t => t.PageId == paging.PageId);
-            }
+                query = query.Where(x => x.Name.Contains(keyword));
 
             int total = await query.CountAsync();
-            var data = await query
-                .OrderBy(c => c.TableName)
-                .Skip((paging.PageNumber - 1) * paging.PageSize)
-                .Take(paging.PageSize)
-                .ToListAsync();
+
+            var data = await query.OrderBy(x => x.Name).Skip((paging.PageNumber - 1) * paging.PageSize).Take(paging.PageSize)
+                   .ToListAsync();
 
             return (data, total);
         }
 
         public async Task<IEnumerable<WFEvent>> GetWFEventAsync(int status)
         {
-            bool? checkStatus = null;
-            if (status <= 1)
-                checkStatus = status == 1;
+            var query = _repository.Query();
 
-            var query = _context.WFEvents.AsQueryable();
-            if (checkStatus != null)
-            {
-                query = query.Where(t => t.IsDeleted == checkStatus);
-            }
+            if (status <= 1)
+                query = query.Where(x => x.IsDeleted == (status == 1));
 
             return await query.ToListAsync();
         }
 
-        public async Task<IEnumerable<WFEvent>> GetEventByCompanyAsync(int status, int companyId)
+        public async Task<IEnumerable<WFEvent>> GetEventByCompanyAsync(int status, Guid tenantId)
         {
-            bool? checkStatus = null;
+            var query = _repository.Query().Where(x => x.TenantId == tenantId);
 
-            if (status <= 1)
-                checkStatus = status == 1;
+            if (status == 0)
+                query = query.Where(x => !x.IsDeleted);
 
-            var query = _context.WFEvents.Where(t => t.CompanyId == companyId);
-
-            if (checkStatus != null)
-            {
-                query = query.Where(t => t.IsDeleted == checkStatus);
-            }
+            else if (status == 1)
+                query = query.Where(x => x.IsDeleted);
 
             return await query.ToListAsync();
         }
 
-        public void Dispose()
+        public async Task<WFEvent?> GetWFEventIdAsync(int id)
         {
-            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposedValue)
-            {
-                if (disposing)
-                {
-                    // TODO: dispose managed state (managed objects)
-                }
-
-                disposedValue = true;
-            }
+            return await _repository.Query().AsNoTracking().FirstOrDefaultAsync(x => x.EventId == id);
         }
     }
 }
