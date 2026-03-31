@@ -1,0 +1,8 @@
+﻿namespace ERP.WorkflowwServices.API.Repositories
+{
+    public class PagedResult<T>
+    {
+        public int Total { get; set; }
+        public List<T> Data { get; set; } = new();
+    }
+}

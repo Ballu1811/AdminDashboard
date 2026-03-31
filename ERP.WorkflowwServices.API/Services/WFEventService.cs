@@ -10,16 +10,16 @@ namespace ERP.WorkflowwServices.API.Services
 {
     public class WFEventService : IWFEvent
     {
-        private readonly IRepository<WFEvent, Guid> _repository;
-        public WFEventService(IRepository<WFEvent, Guid> repository)
+        private readonly IUnitOfWork _uow;
+        public WFEventService(IUnitOfWork uow)
         {
-            _repository = repository;
+            _uow = uow;
         }
 
         public async Task<int> AddWFEvent(WFEvent item)
         {
-            await _repository.AddAsync(item);
-            await _repository.SaveChangesAsync();
+            await _uow.WFEvent.AddAsync(item);
+            await _uow.SaveChangesAsync();
             return item.EventId;
 
             #region Not Use            
@@ -61,21 +61,21 @@ namespace ERP.WorkflowwServices.API.Services
 
         public async Task<int> ToggleDeleteWFEventsAsync(List<int> eventIds, int userId)
         {
-            var events = await _repository.FindAsync(x => eventIds.Contains(x.EventId));
+            var events = await _uow.WFEvent.FindAsync(x => eventIds.Contains(x.EventId));
             foreach (var item in events)
             {
                 item.IsDeleted = !item.IsDeleted;
-                _repository.Update(item);
+                _uow.WFEvent.Update(item);
             }
 
-            await _repository.SaveChangesAsync();
+            await _uow.SaveChangesAsync();
 
             return events.Count();
         }
 
-        public async Task<(IEnumerable<WFEvent> Data, int Total)> FilterWFEventAsync(WorkFlowFilterModel paging, string? keyword)
+        public async Task<(IEnumerable<WFEvent> Data, int Total)> FilterWFEventAsync(FilterModel paging, string? keyword)
         {
-            var query = _repository.Query();
+            var query = _uow.WFEvent.Query();
 
             if (!string.IsNullOrWhiteSpace(keyword))
                 query = query.Where(x => x.Name.Contains(keyword));
@@ -90,7 +90,7 @@ namespace ERP.WorkflowwServices.API.Services
 
         public async Task<IEnumerable<WFEvent>> GetWFEventAsync(int status)
         {
-            var query = _repository.Query();
+            var query = _uow.WFEvent.Query();
 
             if (status <= 1)
                 query = query.Where(x => x.IsDeleted == (status == 1));
@@ -100,7 +100,7 @@ namespace ERP.WorkflowwServices.API.Services
 
         public async Task<IEnumerable<WFEvent>> GetEventByCompanyAsync(int status, Guid tenantId)
         {
-            var query = _repository.Query().Where(x => x.TenantId == tenantId);
+            var query = _uow.WFEvent.Query().Where(x => x.TenantId == tenantId);
 
             if (status == 0)
                 query = query.Where(x => !x.IsDeleted);
@@ -113,7 +113,7 @@ namespace ERP.WorkflowwServices.API.Services
 
         public async Task<WFEvent?> GetWFEventIdAsync(int id)
         {
-            return await _repository.Query().AsNoTracking().FirstOrDefaultAsync(x => x.EventId == id);
+            return await _uow.WFEvent.Query().AsNoTracking().FirstOrDefaultAsync(x => x.EventId == id);
         }
     }
 }

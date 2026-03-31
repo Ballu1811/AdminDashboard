@@ -1,7 +1,9 @@
-﻿using ERP.WorkflowwServices.API.Interfaces;
+﻿using ERP.WorkflowwServices.API.DTOs;
+using ERP.WorkflowwServices.API.DTOs.FilterModels;
+using ERP.WorkflowwServices.API.Interfaces;
 using ERP.WorkflowwServices.API.Models;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ERP.WorkflowwServices.API.Controllers
 {
@@ -13,6 +15,15 @@ namespace ERP.WorkflowwServices.API.Controllers
         public MenuController(IMenuService menuService)
         {
             _menuService = menuService;
+        }
+
+        // GET: api/menu/list
+        [HttpPost]
+        [Route("GetAllFlat")]
+        public async Task<IActionResult> GetAllFlat([FromBody] FilterModel filter)
+        {
+            var result = await _menuService.GetAllAsync(filter);
+            return Ok(result);
         }
 
         // ==========================================
@@ -32,12 +43,8 @@ namespace ERP.WorkflowwServices.API.Controllers
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var menu = await _menuService.GetByIdAsync(id);
-
-            if (menu == null)
-                return NotFound(new { message = "Menu not found" });
-
-            return Ok(menu);
+            var data = await _menuService.GetByIdAsync(id);
+            return data == null ? NotFound() : Ok(data);
         }
 
         // ==========================================
@@ -45,14 +52,12 @@ namespace ERP.WorkflowwServices.API.Controllers
         // Create Menu
         // ==========================================
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] MenuItem model)
+        public async Task<IActionResult> Create([FromBody] MenuCreateDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var exists = await _menuService.ExistsAsync(
-                model.Label,
-                model.ParentId);
+            var exists = await _menuService.ExistsAsync(dto.Label, dto.ParentId);
 
             if (exists)
                 return Conflict(new
@@ -60,7 +65,7 @@ namespace ERP.WorkflowwServices.API.Controllers
                     message = "Menu with same name already exists"
                 });
 
-            var created = await _menuService.CreateAsync(model);
+            var created = await _menuService.CreateAsync(dto);
 
             return CreatedAtAction(
                 nameof(GetById),
@@ -73,8 +78,7 @@ namespace ERP.WorkflowwServices.API.Controllers
         // Update Menu
         // ==========================================
         [HttpPut("{id:guid}")]
-        public async Task<IActionResult> Update(Guid id,
-            [FromBody] MenuItem model)
+        public async Task<IActionResult> Update(Guid id, [FromBody] MenuUpdateDto model)
         {
             if (id != model.Id)
                 return BadRequest(new
@@ -82,28 +86,7 @@ namespace ERP.WorkflowwServices.API.Controllers
                     message = "Id mismatch"
                 });
 
-            var existing = await _menuService.GetByIdAsync(id);
-
-            if (existing == null)
-                return NotFound(new { message = "Menu not found" });
-
-            // update fields
-            existing.Label = model.Label;
-            existing.Icon = model.Icon;
-            existing.Route = model.Route;
-            existing.ParentId = model.ParentId;
-            existing.OrderNo = model.OrderNo;
-            existing.Permission = model.Permission;
-            existing.MenuType = model.MenuType;
-            existing.Tooltip = model.Tooltip;
-            existing.IsExternal = model.IsExternal;
-            existing.Target = model.Target;
-            existing.Module = model.Module;
-            existing.DefaultExpanded = model.DefaultExpanded;
-            existing.IsActive = model.IsActive;
-            existing.IsVisible = model.IsVisible;
-
-            await _menuService.UpdateAsync(existing);
+            await _menuService.UpdateAsync(model);
 
             return Ok(new { message = "Menu updated successfully" });
         }
@@ -123,6 +106,13 @@ namespace ERP.WorkflowwServices.API.Controllers
             await _menuService.DeleteAsync(id);
 
             return Ok(new { message = "Menu deleted successfully" });
+        }
+
+        [HttpGet("module/{moduleId}")]
+        public async Task<IActionResult> GetByModule(Guid moduleId)
+        {
+            var result = await _menuService.GetMenuTreeByModuleAsync(moduleId);
+            return Ok(result);
         }
     }
 }

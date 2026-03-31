@@ -1,6 +1,6 @@
 ﻿namespace ERP.WorkflowwServices.API.DTOs.FilterModels
 {
-    public class WorkFlowFilterModel : BasePaging
+    public class FilterModel : BasePaging
     {
         public uint? Status { get; set; }
         public string? KeyWord { get; set; }

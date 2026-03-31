@@ -92,7 +92,7 @@ namespace ERP.WorkflowwServices.API.Controllers
         }
 
         [HttpPost("filter")]
-        public async Task<IActionResult> FilterWFEvent([FromBody] WorkFlowFilterModel filter, [FromQuery] string? keyword)
+        public async Task<IActionResult> FilterWFEvent([FromBody] FilterModel filter, [FromQuery] string? keyword)
         {
             var (data, total) = await _wFEvent.FilterWFEventAsync(filter, keyword);
 

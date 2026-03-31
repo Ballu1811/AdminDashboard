@@ -7,7 +7,7 @@ namespace ERP.WorkflowwServices.API.Interfaces
     {
         Task<int> AddWFEvent(WFEvent item);
         Task<int> ToggleDeleteWFEventsAsync(List<int> eventIds, int userId);
-        Task<(IEnumerable<WFEvent> Data, int Total)> FilterWFEventAsync(WorkFlowFilterModel paging, string? keyword);
+        Task<(IEnumerable<WFEvent> Data, int Total)> FilterWFEventAsync(FilterModel paging, string? keyword);
         Task<IEnumerable<WFEvent>> GetWFEventAsync(int status);
         Task<IEnumerable<WFEvent>> GetEventByCompanyAsync(int status, Guid tenantId);
         Task<WFEvent?> GetWFEventIdAsync(int id);
