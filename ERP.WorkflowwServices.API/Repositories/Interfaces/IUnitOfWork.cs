@@ -10,7 +10,10 @@ namespace ERP.WorkflowwServices.API.Repositories.Interfaces
         IRepository<RefreshToken, int> RefreshTokens { get; }
         IRepository<MenuItem, Guid> Menus { get; }
         IRepository<Module, Guid> Modules { get; }        
-        IRepository<WFEvent, Guid> WFEvent { get; }        
+        IRepository<WFEvent, Guid> WFEvent { get; }    
+        IRepository<UserLayoutSettings, Guid> UserLayoutSettings { get; }    
+        IRepository<TenantThemeSettings, Guid> TenantThemeSettings { get; }    
+        
         Task<int> SaveChangesAsync();
     }
 }

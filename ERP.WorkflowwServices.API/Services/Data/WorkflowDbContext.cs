@@ -3,7 +3,6 @@ using ERP.WorkflowwServices.API.Interfaces.Common;
 using ERP.WorkflowwServices.API.Models;
 using ERP.WorkflowwServices.API.WorkflowContext;
 using Microsoft.EntityFrameworkCore;
-using System.Diagnostics;
 using System.Linq.Expressions;
 
 namespace ERP.WorkflowwServices.API.Services.Data
@@ -26,6 +25,12 @@ namespace ERP.WorkflowwServices.API.Services.Data
         public DbSet<Roles> Roles { get; set; }
         public DbSet<MenuRole> MenuRoles { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+        #endregion
+
+        #region Theme Managements
+        public DbSet<UserLayoutSettings> UserLayoutSettings { get; set; }
+        public DbSet<TenantThemeSettings> TenantThemeSettings { get; set; }
+        public DbSet<ThemePreset> ThemePresets { get; set; }
         #endregion
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -57,7 +62,7 @@ namespace ERP.WorkflowwServices.API.Services.Data
             {
                 if (entry.State == EntityState.Added)
                 {
-                    entry.Entity.TenantId = CurrentTenantId;
+                    entry.Entity.TenantId = ctx.TenantId;
                 }
             }
 
@@ -67,13 +72,13 @@ namespace ERP.WorkflowwServices.API.Services.Data
                 if (entry.State == EntityState.Added)
                 {
                     entry.Entity.CreatedAt = now;
-                    entry.Entity.CreatedBy = ctx.ActorId ?? SystemUser.Id;
+                    entry.Entity.CreatedBy = ctx.ActorId ?? SystemDefaults.SystemUserId;
                 }
 
                 else if (entry.State == EntityState.Modified)
                 {
                     entry.Entity.UpdatedAt = now;
-                    entry.Entity.UpdatedBy = ctx.ActorId ?? SystemUser.Id;
+                    entry.Entity.UpdatedBy = ctx.ActorId ?? SystemDefaults.SystemUserId;
                 }
 
                 else if (entry.State == EntityState.Deleted)
@@ -83,7 +88,7 @@ namespace ERP.WorkflowwServices.API.Services.Data
 
                     entry.Entity.IsDeleted = true;
                     entry.Entity.DeletedAt = now;
-                    entry.Entity.DeletedBy = ctx.ActorId ?? SystemUser.Id;
+                    entry.Entity.DeletedBy = ctx.ActorId ?? SystemDefaults.SystemUserId;
                 }
             }
 
@@ -114,7 +119,7 @@ namespace ERP.WorkflowwServices.API.Services.Data
                 if (typeof(ITenantEntity).IsAssignableFrom(clrType))
                 {
                     var tenantProp = Expression.Property(parameter, nameof(ITenantEntity.TenantId));
-                    var dbContext = Expression.Property(Expression.Constant(this, typeof(WorkflowDbContext)),nameof(CurrentTenantId));
+                    var dbContext = Expression.Property(Expression.Constant(this, typeof(WorkflowDbContext)), nameof(CurrentTenantId));
 
                     var tenantCondition =
                         Expression.OrElse(

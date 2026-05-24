@@ -41,6 +41,14 @@ namespace ERP.WorkflowwServices.API.Repositories.Implementations
         }
 
         // ===============================
+        // Get First or Default
+        // ===============================
+        public async Task<T?> FirstOrDefaultTrackedAsync(Expression<Func<T, bool>> predicate)
+        {
+            return await _dbSet.FirstOrDefaultAsync(predicate);
+        }
+
+        // ===============================
         // QUERY (BEST METHOD 🔥)
         // ===============================
         public IQueryable<T> Query()

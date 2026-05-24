@@ -29,7 +29,7 @@
 		<PackageReference Include="FluentValidation" Version="12.1.1" />
 
 		<!-- Mapping -->
-		<PackageReference Include="AutoMapper" Version="16.0.0" />
+		<PackageReference Include="AutoMapper" Version="16.1.1" />
 
 		<!-- Swagger -->
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />

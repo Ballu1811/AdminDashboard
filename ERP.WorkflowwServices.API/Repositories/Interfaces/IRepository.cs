@@ -8,6 +8,7 @@ namespace ERP.WorkflowwServices.API.Repositories.Interfaces
         Task<T?> GetByIdAsync(TKey id);
         Task<IEnumerable<T>> GetAllAsync();
         Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate);
+        Task<T?> FirstOrDefaultTrackedAsync(Expression<Func<T, bool>> predicate);
 
         IQueryable<T> Query();
 

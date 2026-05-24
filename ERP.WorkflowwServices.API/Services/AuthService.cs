@@ -30,30 +30,67 @@ namespace ERP.WorkflowwServices.API.Services
             if (user == null)
                 throw new Exception("Invalid username");
 
+            if (!user.IsActive)
+                throw new Exception("User is inactive");
+
+            if (user.IsLocked)
+                throw new Exception("User is locked");
+
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+            {
+                user.AccessFailedCount++;
+
+                if (user.AccessFailedCount >= 5)
+                {
+                    user.IsLocked = true;
+                    user.LockoutEnd = DateTime.UtcNow.AddMinutes(15);
+                }
+
+                _uow.Users.Update(user);
+                await _uow.SaveChangesAsync();
+
                 throw new Exception("Invalid password");
+            }
 
-            // 🔥 Get permissions from MenuRole
-            var permissions = user.Role.MenuRoles
-                .Where(x => x.CanView)
-                .Select(x => x.Menu.Permission)
-                .Where(p => p != null)
-                .ToList();
+            // Reset failed attempts
+            user.AccessFailedCount = 0;
+            user.IsLocked = false;
 
+            // ================================
+            // 3. 🔥 GET PERMISSIONS
+            // ================================
+            List<string> permissions;
+            if (user?.Role?.Code == "SUPER_ADMIN")
+            {
+                // 🚀 Super Admin = ALL permissions (NO restriction)
+                permissions = await _uow.Menus.Query().Where(x => x.Permission != null && x.IsActive)
+                    .Select(x => x.Permission!).Distinct().ToListAsync();
+            }
+            else
+            {
+                permissions = user?.Role?.MenuRoles.Where(x => x.CanView && x.IsActive && x.Menu != null && x.Menu.IsActive)
+                    .Select(x => x?.Menu?.Permission).Where(p => p != null).Distinct().ToList()!;
+            }
+
+            // ================================
+            // 4. GENERATE TOKENS
+            // ================================
             var token = _jwt.GenerateToken(user, permissions);
-
             var refresh = _jwt.GenerateRefreshToken();
 
             // 🔥 Save refresh token
             await _uow.RefreshTokens.AddAsync(new RefreshToken
             {
+                TenantId = user.TenantId,
                 UserId = user.Id,
                 Token = refresh,
-                Expires = DateTime.UtcNow.AddDays(7)
+                Expires = DateTime.UtcNow.AddDays(int.Parse(_config["JwtSettings:RefreshTokenExpiryDays"])),
+                CreatedByIp = "SYSTEM"
             });
 
             // 🔥 Update user
             user.LastLoginAt = DateTime.UtcNow;
+            user.LastLoginIp = "SYSTEM";
             _uow.Users.Update(user);
 
             // ✅ SINGLE COMMIT
@@ -64,7 +101,7 @@ namespace ERP.WorkflowwServices.API.Services
                 Token = token,
                 RefreshToken = refresh,
                 Expiry = DateTime.UtcNow.AddMinutes(
-                    int.Parse(_config["Jwt:AccessTokenExpiryMinutes"])
+                    int.Parse(_config["JwtSettings:AccessTokenExpiryMinutes"])
                 ),
                 UserId = user.Id,
                 Username = user.Username,

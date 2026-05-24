@@ -82,8 +82,8 @@ namespace ERP.WorkflowwServices.API
                    ValidateLifetime = true,
                    ValidateIssuerSigningKey = true,
 
-                   ValidIssuer = config["Jwt:Issuer"],
-                   ValidAudience = config["Jwt:Audience"],
+                   ValidIssuer = config["JwtSettings:Issuer"],
+                   ValidAudience = config["JwtSettings:Audience"],
                    IssuerSigningKey = new SymmetricSecurityKey(
                        Encoding.UTF8.GetBytes(jwtKey!)
                    )
@@ -114,9 +114,30 @@ namespace ERP.WorkflowwServices.API
             var app = builder.Build();
 
             // ===============================
-            // PIPELINE
+            // 🔥 DATABASE SEEDER (IMPORTANT)
             // ===============================
-            if (app.Environment.IsDevelopment())
+            using (var scope = app.Services.CreateScope())
+            {
+                var services = scope.ServiceProvider;
+                try
+                {
+                    var db = services.GetRequiredService<WorkflowDbContext>();
+                    db.Database.Migrate(); // 🔥 ensure DB ready
+
+                    var seeder = services.GetRequiredService<DbSeeder>();
+                    seeder.SeedAsync().GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    var logger = services.GetRequiredService<ILogger<Program>>();
+                    logger.LogError(ex, "Error while seeding database");
+                }
+            }
+
+                // ===============================
+                // PIPELINE
+                // ===============================
+                if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
@@ -124,13 +145,13 @@ namespace ERP.WorkflowwServices.API
 
             app.UseCors("AllowAngular");
 
-            app.UseHttpsRedirection();
-
-            app.UseMiddleware<WorkflowContextMiddleware>();
+            app.UseHttpsRedirection();            
 
             // 🔥 IMPORTANT ORDER
             app.UseAuthentication();   // ✅ MUST FIRST
             app.UseAuthorization();    // ✅ THEN AUTHORIZATION
+
+            app.UseMiddleware<WorkflowContextMiddleware>();
 
             app.MapControllers();
 

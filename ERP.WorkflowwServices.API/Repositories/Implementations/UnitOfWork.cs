@@ -4,7 +4,7 @@ using ERP.WorkflowwServices.API.Services.Data;
 
 namespace ERP.WorkflowwServices.API.Repositories.Implementations
 {
-    public class UnitOfWork:IUnitOfWork
+    public class UnitOfWork : IUnitOfWork
     {
         private readonly WorkflowDbContext _context;
 
@@ -40,6 +40,8 @@ namespace ERP.WorkflowwServices.API.Repositories.Implementations
         public IRepository<MenuItem, Guid> Menus => Repository<MenuItem, Guid>();
         public IRepository<Module, Guid> Modules => Repository<Module, Guid>();
         public IRepository<WFEvent, Guid> WFEvent => Repository<WFEvent, Guid>();
+        public IRepository<UserLayoutSettings, Guid> UserLayoutSettings => Repository<UserLayoutSettings, Guid>();
+        public IRepository<TenantThemeSettings, Guid> TenantThemeSettings => Repository<TenantThemeSettings, Guid>();
 
         // ===============================
         // SAVE

@@ -21,30 +21,37 @@ namespace ERP.WorkflowwServices.API.Services
         {
             var claims = new List<Claim>
             {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
-            new Claim("tenantId", user.TenantId.ToString()),
-            new Claim(ClaimTypes.Role, user.Role.Name),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                /* 🔥 CORE IDENTIFIERS */
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()), // userId
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),   // standard .NET
+
+                new Claim("tenantId", user.TenantId.ToString()),
+
+                /* BASIC INFO */
+                new Claim(JwtRegisteredClaimNames.UniqueName, user.Username ?? ""),
+                new Claim(ClaimTypes.Name, user.Username ?? ""),
+
+                new Claim(ClaimTypes.Role, user.Role?.Name ?? ""),
+
+                /* SECURITY */
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
-            // 🔥 Add permissions
-            foreach (var perm in permissions)
+            /* 🔥 PERMISSIONS */
+            if (permissions != null && permissions.Any())
             {
-                claims.Add(new Claim("permission", perm));
+                claims.AddRange(permissions.Select(p => new Claim("permission", p)));
             }
 
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(_config["Jwt:Key"])
-            );
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["JwtSettings:SecretKey"]));
 
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var expiryMinutes = int.Parse(_config["Jwt:AccessTokenExpiryMinutes"]);
+            var expiryMinutes = int.Parse(_config["JwtSettings:AccessTokenExpiryMinutes"]);
 
             var token = new JwtSecurityToken(
-                issuer: _config["Jwt:Issuer"],
-                audience: _config["Jwt:Audience"],
+                issuer: _config["JwtSettings:Issuer"],
+                audience: _config["JwtSettings:Audience"],
                 claims: claims,
                 expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
                 signingCredentials: creds

@@ -12,7 +12,8 @@ namespace ERP.WorkflowwServices.API.WorkflowContext
                 {
                     _context = new WorkflowExecutionContext
                     {
-                        TenantId = DefaultTenant.Id,
+                        TenantId = SystemDefaults.DefaultTenantId,
+                        ActorId = SystemDefaults.SystemUserId,
                         IsSystemAction = true
                     };
                 }

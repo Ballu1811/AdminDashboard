@@ -1,4 +1,5 @@
-﻿using ERP.WorkflowwServices.API.Core;
+﻿using ERP.WorkflowwServices.API.Common;
+using ERP.WorkflowwServices.API.Core;
 using ERP.WorkflowwServices.API.Interfaces;
 using ERP.WorkflowwServices.API.Repositories.Implementations;
 using ERP.WorkflowwServices.API.Repositories.Interfaces;
@@ -11,7 +12,17 @@ namespace ERP.WorkflowwServices.API.Configurations
     public static class ApplicationServices
     {
         public static IServiceCollection AddApplicationServices(this IServiceCollection services, IWebHostEnvironment environment)
-        {
+        {   
+            // ===============================
+            // 🔥 HTTP CONTEXT (REQUIRED FOR USER CONTEXT)
+            // ===============================
+            services.AddHttpContextAccessor();
+
+            // ===============================
+            // 🔥 USER CONTEXT (MOST IMPORTANT)
+            // ===============================
+            services.AddScoped<IUserContext, UserContext>();
+
             // ===============================
             // GENERIC REPOSITORY
             // ===============================
@@ -40,11 +51,15 @@ namespace ERP.WorkflowwServices.API.Configurations
             services.AddScoped<IModuleService, ModuleService>();
             services.AddScoped<IWFEvent, WFEventService>();
 
+            // 🔥 ADD THIS (YOUR NEW SERVICE)
+            services.AddScoped<IUserLayoutSettingsService, UserLayoutSettingsService>();
+
             // ===============================
             // 🔐 PERMISSION HANDLER
             // ===============================
             services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
-                       
+
+            services.AddScoped<DbSeeder>();
 
             return services;
         }

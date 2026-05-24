@@ -1,5 +1,6 @@
 ﻿using ERP.WorkflowwServices.API.Common;
 using ERP.WorkflowwServices.API.WorkflowContext;
+using System.Security.Claims;
 
 namespace ERP.WorkflowwServices.API.Configurations
 {
@@ -11,18 +12,13 @@ namespace ERP.WorkflowwServices.API.Configurations
             _next = next;
         }
 
-        public async Task Invoke(HttpContext context, IWorkflowExecutionContextAccessor accessor)
+        public async Task Invoke(HttpContext context, IUserContext userContext, IWorkflowExecutionContextAccessor workflow)
         {
-            var tenantId = context.User.FindFirst("tenantId")?.Value;
-            accessor.Context = new WorkflowExecutionContext
+            workflow.Context = new WorkflowExecutionContext
             {
-                TenantId = tenantId != null ? Guid.Parse(tenantId) : DefaultTenant.Id,
-
-                ActorId = context.User.FindFirst("userId") != null
-                ? Guid.Parse(context.User.FindFirst("userId")!.Value)
-                : null,
-
-                IsSystemAction = tenantId == null
+                TenantId = userContext.TenantId,
+                ActorId = userContext.IsAuthenticated ? userContext.UserId : SystemDefaults.SystemUserId,
+                IsSystemAction = !userContext.IsAuthenticated
             };
 
             await _next(context);
