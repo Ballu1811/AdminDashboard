@@ -132,7 +132,7 @@ namespace ERP.WorkflowwServices.API.Services
             if (!string.IsNullOrEmpty(dto.HeaderDensity)) entity.HeaderDensity = dto.HeaderDensity;
 
             /* ADVANCED */
-            entity.ThemePreset = dto.ThemePreset ?? entity.ThemePreset;
+            entity.ThemePreset = dto.ThemePreset;
             entity.UseSystemTheme = dto.UseSystemTheme;
 
             try
