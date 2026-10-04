@@ -1,12 +1,14 @@
 ﻿using ERP.WorkflowwServices.API.DTOs;
 using ERP.WorkflowwServices.API.DTOs.FilterModels;
 using ERP.WorkflowwServices.API.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ERP.WorkflowwServices.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "SuperAdmin")]
     public class ModuleController : ControllerBase
     {
         private readonly IModuleService _service;

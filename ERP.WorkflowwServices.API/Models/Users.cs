@@ -51,6 +51,8 @@ namespace ERP.WorkflowwServices.API.Models
         [ForeignKey(nameof(RoleId))]
         public Roles? Role { get; set; }
 
+        public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+
         // ================= ORGANIZATION =================
         public Guid? DepartmentId { get; set; }
 

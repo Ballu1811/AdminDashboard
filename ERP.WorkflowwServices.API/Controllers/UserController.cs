@@ -65,6 +65,20 @@ namespace ERP.WorkflowwServices.API.Controllers
             }
         }
 
+        [HttpPut("{id:guid}/roles")]
+        public async Task<IActionResult> SetRoles(Guid id, [FromBody] SetUserRolesRequest request)
+        {
+            try
+            {
+                var user = await _users.SetRolesAsync(id, request);
+                return user == null ? NotFound() : Ok(user);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Conflict(new { message = exception.Message });
+            }
+        }
+
         [HttpPatch("{id:guid}/status")]
         public async Task<IActionResult> SetStatus(Guid id, [FromBody] SetUserStatusRequest request)
         {

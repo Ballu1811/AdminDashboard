@@ -11,6 +11,7 @@ namespace ERP.WorkflowwServices.API.Interfaces
         Task<List<UserRoleOptionDto>> GetRolesAsync();
         Task<UserListDto> CreateAsync(CreateUserRequest request);
         Task<UserListDto?> UpdateAsync(Guid id, UpdateUserRequest request);
+        Task<UserListDto?> SetRolesAsync(Guid id, SetUserRolesRequest request);
         Task<UserListDto?> SetStatusAsync(Guid id, bool isActive);
     }
 }

@@ -11,6 +11,8 @@ namespace ERP.WorkflowwServices.API.DTOs
         public string? MobileNo { get; set; }
         public Guid RoleId { get; set; }
         public string? RoleName { get; set; }
+        public List<Guid> RoleIds { get; set; } = new();
+        public List<string> RoleNames { get; set; } = new();
         public Guid? DepartmentId { get; set; }
         public bool IsActive { get; set; }
         public bool IsLocked { get; set; }

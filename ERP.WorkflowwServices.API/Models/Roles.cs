@@ -59,5 +59,7 @@ namespace ERP.WorkflowwServices.API.Models
         public ICollection<MenuRole> MenuRoles { get; set; } = new List<MenuRole>();
 
         public ICollection<Users> Users { get; set; } = new List<Users>();
+
+        public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     }
 }

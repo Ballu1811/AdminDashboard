@@ -19,10 +19,13 @@ namespace ERP.WorkflowwServices.API.Services.Data
         public DbSet<WFEvent> WFEvents { get; set; }
         public DbSet<MenuItem> MenuItems { get; set; }
         public DbSet<Module> Modules { get; set; }
+        public DbSet<Company> Companies { get; set; }
+        public DbSet<CompanyModuleAccess> CompanyModuleAccesses { get; set; }
 
         #region Auth & Users
         public DbSet<Users> Users { get; set; }
         public DbSet<Roles> Roles { get; set; }
+        public DbSet<UserRole> UserRoles { get; set; }
         public DbSet<MenuRole> MenuRoles { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         #endregion
@@ -45,6 +48,39 @@ namespace ERP.WorkflowwServices.API.Services.Data
                 .WithMany(m => m.Children)
                 .HasForeignKey(m => m.ParentId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<UserRole>()
+                .HasKey(userRole => new { userRole.UserId, userRole.RoleId });
+
+            modelBuilder.Entity<UserRole>()
+                .HasOne(userRole => userRole.User)
+                .WithMany(user => user.UserRoles)
+                .HasForeignKey(userRole => userRole.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<UserRole>()
+                .HasOne(userRole => userRole.Role)
+                .WithMany(role => role.UserRoles)
+                .HasForeignKey(userRole => userRole.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<CompanyModuleAccess>()
+                .HasKey(access => new { access.CompanyId, access.ModuleId });
+
+            modelBuilder.Entity<CompanyModuleAccess>()
+                .HasOne(access => access.Company)
+                .WithMany(company => company.ModuleAccess)
+                .HasForeignKey(access => access.CompanyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CompanyModuleAccess>()
+                .HasOne(access => access.Module)
+                .WithMany()
+                .HasForeignKey(access => access.ModuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<CompanyModuleAccess>()
+                .HasQueryFilter(access => !access.Company!.IsDeleted);
 
             // ✅ Tenant Filter (CLEAN VERSION)
             //modelBuilder.Entity<MenuItem>()

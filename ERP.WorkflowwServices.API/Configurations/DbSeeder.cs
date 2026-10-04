@@ -71,6 +71,58 @@ namespace ERP.WorkflowwServices.API.Configurations
                 await _context.MenuRoles.AddRangeAsync(menuRoles);
             }
 
+            var administrationMenu = await _context.MenuItems.FirstOrDefaultAsync(menu =>
+                menu.TenantId == tenantId && menu.ParentId == null && menu.Label == "Administration");
+
+            var platformMenus = new[]
+            {
+                new { Label = "Company Master", Route = "/administration/companies", Icon = "pi pi-building", Permission = "PLATFORM_COMPANIES", OrderNo = 5 },
+                new { Label = "Module Master", Route = "/administration/platform/modules", Icon = "pi pi-th-large", Permission = "PLATFORM_MODULES", OrderNo = 6 }
+            };
+
+            foreach (var definition in platformMenus)
+            {
+                var menu = await _context.MenuItems.FirstOrDefaultAsync(item =>
+                    item.TenantId == tenantId && item.Route == definition.Route);
+
+                if (menu == null)
+                {
+                    menu = new MenuItem
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        ParentId = administrationMenu?.Id,
+                        Label = definition.Label,
+                        Route = definition.Route,
+                        Icon = definition.Icon,
+                        Permission = definition.Permission,
+                        MenuType = "link",
+                        OrderNo = definition.OrderNo,
+                        Target = "_self",
+                        IsActive = true,
+                        IsVisible = true,
+                        ShowInSidebar = true
+                    };
+                    await _context.MenuItems.AddAsync(menu);
+                }
+
+                if (!await _context.MenuRoles.AnyAsync(menuRole => menuRole.MenuId == menu.Id && menuRole.RoleId == role.Id))
+                {
+                    await _context.MenuRoles.AddAsync(new MenuRole
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        MenuId = menu.Id,
+                        RoleId = role.Id,
+                        CanView = true,
+                        CanCreate = true,
+                        CanEdit = true,
+                        CanDelete = true,
+                        IsActive = true
+                    });
+                }
+            }
+
 
             // ================================
             // 4. ADMIN USER

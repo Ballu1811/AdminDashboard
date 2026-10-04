@@ -1,5 +1,6 @@
 ﻿using ERP.WorkflowwServices.API.DTOs;
 using ERP.WorkflowwServices.API.DTOs.FilterModels;
+using ERP.WorkflowwServices.API.Common;
 using ERP.WorkflowwServices.API.Interfaces;
 using ERP.WorkflowwServices.API.Models;
 using ERP.WorkflowwServices.API.Repositories;
@@ -11,9 +12,11 @@ namespace ERP.WorkflowwServices.API.Services
     public class MenuService : IMenuService
     {
         private readonly IUnitOfWork _uow;
-        public MenuService(IUnitOfWork uow)
+        private readonly IUserContext _userContext;
+        public MenuService(IUnitOfWork uow, IUserContext userContext)
         {
             _uow = uow;
+            _userContext = userContext;
         }
 
         // ===============================
@@ -41,12 +44,13 @@ namespace ERP.WorkflowwServices.API.Services
         // ======================================================
         public async Task<PagedResult<MenuDto>> GetAllAsync(FilterModel filter)
         {
-            bool? checkstatus = null;
+            var query = _uow.Menus.Query().IgnoreQueryFilters().AsNoTracking()
+                .Where(menu => menu.TenantId == _userContext.TenantId);
 
-            if (filter.Status <= 1)
-                checkstatus = filter.Status > 0;
-
-            var query = _uow.Menus.Query().AsNoTracking().Where(x => (checkstatus == null || x.IsDeleted == checkstatus) && x.IsActive);
+            if (filter.Status == 0)
+                query = query.Where(menu => !menu.IsDeleted && menu.IsActive);
+            else if (filter.Status == 1)
+                query = query.Where(menu => menu.IsDeleted);
 
             if (filter.HaveFilter && !string.IsNullOrWhiteSpace(filter.KeyWord))
             {
@@ -92,6 +96,7 @@ namespace ERP.WorkflowwServices.API.Services
 
                     IsActive = x.IsActive,
                     IsVisible = x.IsVisible,
+                    IsDeleted = x.IsDeleted,
 
                     ShowInSidebar = x.ShowInSidebar,
                     ShowInTopbar = x.ShowInTopbar,

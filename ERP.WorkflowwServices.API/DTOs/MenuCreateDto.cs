@@ -36,6 +36,7 @@
         // ================= FLAGS =================
         public bool IsActive { get; set; }
         public bool IsVisible { get; set; }
+        public bool IsDeleted { get; set; }
 
         public bool ShowInSidebar { get; set; }
         public bool ShowInTopbar { get; set; }

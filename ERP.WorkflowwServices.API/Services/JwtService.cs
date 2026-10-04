@@ -31,11 +31,17 @@ namespace ERP.WorkflowwServices.API.Services
                 new Claim(JwtRegisteredClaimNames.UniqueName, user.Username ?? ""),
                 new Claim(ClaimTypes.Name, user.Username ?? ""),
 
-                new Claim(ClaimTypes.Role, user.Role?.Name ?? ""),
-
                 /* SECURITY */
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
+
+            var assignedRoles = user.UserRoles
+                .Where(userRole => userRole.Role != null)
+                .Select(userRole => userRole.Role!.Name)
+                .Append(user.Role?.Name)
+                .Where(roleName => !string.IsNullOrWhiteSpace(roleName))
+                .Distinct();
+            claims.AddRange(assignedRoles.Select(roleName => new Claim(ClaimTypes.Role, roleName!)));
 
             /* 🔥 PERMISSIONS */
             if (permissions != null && permissions.Any())

@@ -24,7 +24,10 @@ namespace ERP.WorkflowwServices.API.Services
         // =========================
         public async Task<AuthResponseDto> Login(LoginDto dto)
         {
-            var user = await _uow.Users.Query().Include(x => x.Role).ThenInclude(r => r.MenuRoles).ThenInclude(m => m.Menu)
+            var user = await _uow.Users.Query()
+                .Include(x => x.Role).ThenInclude(r => r.MenuRoles).ThenInclude(m => m.Menu)
+                .Include(x => x.UserRoles).ThenInclude(userRole => userRole.Role)
+                    .ThenInclude(role => role.MenuRoles).ThenInclude(menuRole => menuRole.Menu)
                 .FirstOrDefaultAsync(x => x.Username == dto.Username);
 
             if (user == null)
@@ -59,8 +62,9 @@ namespace ERP.WorkflowwServices.API.Services
             // ================================
             // 3. 🔥 GET PERMISSIONS
             // ================================
+            var assignedRoles = GetAssignedRoles(user);
             List<string> permissions;
-            if (user?.Role?.Code == "SUPER_ADMIN")
+            if (assignedRoles.Any(role => role.Code == "SUPER_ADMIN"))
             {
                 // 🚀 Super Admin = ALL permissions (NO restriction)
                 permissions = await _uow.Menus.Query().Where(x => x.Permission != null && x.IsActive)
@@ -68,8 +72,13 @@ namespace ERP.WorkflowwServices.API.Services
             }
             else
             {
-                permissions = user?.Role?.MenuRoles.Where(x => x.CanView && x.IsActive && x.Menu != null && x.Menu.IsActive)
-                    .Select(x => x?.Menu?.Permission).Where(p => p != null).Distinct().ToList()!;
+                permissions = assignedRoles
+                    .SelectMany(role => role.MenuRoles)
+                    .Where(menuRole => menuRole.CanView && menuRole.IsActive && menuRole.Menu != null && menuRole.Menu.IsActive)
+                    .Select(menuRole => menuRole.Menu!.Permission)
+                    .Where(permission => permission != null)
+                    .Distinct()
+                    .ToList()!;
             }
 
             // ================================
@@ -133,7 +142,10 @@ namespace ERP.WorkflowwServices.API.Services
             if (existingToken.Expires < DateTime.UtcNow)
                 throw new Exception("Token expired");
 
-            var user = await _uow.Users.Query().Include(x => x.Role).ThenInclude(r => r.MenuRoles).ThenInclude(m => m.Menu)
+            var user = await _uow.Users.Query()
+                .Include(x => x.Role).ThenInclude(r => r.MenuRoles).ThenInclude(m => m.Menu)
+                .Include(x => x.UserRoles).ThenInclude(userRole => userRole.Role)
+                    .ThenInclude(role => role.MenuRoles).ThenInclude(menuRole => menuRole.Menu)
                 .FirstOrDefaultAsync(x => x.Id == existingToken.UserId);
 
             if (user == null)
@@ -163,10 +175,19 @@ namespace ERP.WorkflowwServices.API.Services
             await _uow.RefreshTokens.AddAsync(newRefreshToken);
 
             // 🔑 Permissions
-            var permissions = user.Role.MenuRoles
-                .Where(x => x.CanView)
-                .Select(x => x.Menu.Permission!)
-                .ToList();
+            var assignedRoles = GetAssignedRoles(user);
+            var permissions = assignedRoles.Any(role => role.Code == "SUPER_ADMIN")
+                ? await _uow.Menus.Query()
+                    .Where(menu => menu.Permission != null && menu.IsActive)
+                    .Select(menu => menu.Permission!)
+                    .Distinct()
+                    .ToListAsync()
+                : assignedRoles
+                    .SelectMany(role => role.MenuRoles)
+                    .Where(menuRole => menuRole.CanView && menuRole.IsActive && menuRole.Menu != null && menuRole.Menu.IsActive)
+                    .Select(menuRole => menuRole.Menu!.Permission!)
+                    .Distinct()
+                    .ToList();
 
             var newAccessToken = _jwt.GenerateToken(user, permissions);
 
@@ -203,6 +224,20 @@ namespace ERP.WorkflowwServices.API.Services
 
             _uow.RefreshTokens.Update(token);
             await _uow.SaveChangesAsync();
+        }
+
+        private static List<Roles> GetAssignedRoles(Users user)
+        {
+            var roles = user.UserRoles
+                .Where(userRole => userRole.Role != null)
+                .Select(userRole => userRole.Role!)
+                .DistinctBy(role => role.Id)
+                .ToList();
+
+            if (user.Role != null && roles.All(role => role.Id != user.Role.Id))
+                roles.Add(user.Role);
+
+            return roles;
         }
 
         // =========================
