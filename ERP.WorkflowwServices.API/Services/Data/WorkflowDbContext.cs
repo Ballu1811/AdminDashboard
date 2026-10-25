@@ -18,7 +18,9 @@ namespace ERP.WorkflowwServices.API.Services.Data
 
         public DbSet<WFEvent> WFEvents { get; set; }
         public DbSet<MenuItem> MenuItems { get; set; }
+        public DbSet<MenuPlacement> MenuPlacements { get; set; }
         public DbSet<Module> Modules { get; set; }
+        public DbSet<SubModule> SubModules { get; set; }
         public DbSet<Company> Companies { get; set; }
         public DbSet<CompanyModuleAccess> CompanyModuleAccesses { get; set; }
 
@@ -47,6 +49,59 @@ namespace ERP.WorkflowwServices.API.Services.Data
                 .HasOne(m => m.Parent)
                 .WithMany(m => m.Children)
                 .HasForeignKey(m => m.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<MenuItem>()
+                .HasIndex(menu => new { menu.TenantId, menu.Code })
+                .IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<MenuItem>()
+                .HasIndex(menu => new { menu.TenantId, menu.MenuKey })
+                .IsUnique().HasFilter("[IsDeleted] = 0");
+
+            modelBuilder.Entity<Module>()
+                .HasOne(module => module.ParentModule)
+                .WithMany(module => module.ChildModules)
+                .HasForeignKey(module => module.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Module>()
+                .HasIndex(module => new { module.TenantId, module.ModuleKey })
+                .IsUnique().HasFilter("[IsDeleted] = 0");
+
+            modelBuilder.Entity<SubModule>()
+                .HasOne(subModule => subModule.Parent)
+                .WithMany(module => module.SubModules)
+                .HasForeignKey(subModule => subModule.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SubModule>()
+                .HasIndex(subModule => new { subModule.TenantId, subModule.Code })
+                .IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<SubModule>()
+                .HasIndex(subModule => new { subModule.TenantId, subModule.ModuleKey })
+                .IsUnique().HasFilter("[IsDeleted] = 0");
+
+            modelBuilder.Entity<MenuPlacement>()
+                .HasIndex(placement => new { placement.TenantId, placement.ModuleId, placement.MenuId })
+                .IsUnique()
+                .HasFilter("[IsDeleted] = 0");
+
+            modelBuilder.Entity<MenuPlacement>()
+                .HasOne(placement => placement.Module)
+                .WithMany()
+                .HasForeignKey(placement => placement.ModuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<MenuPlacement>()
+                .HasOne(placement => placement.Menu)
+                .WithMany()
+                .HasForeignKey(placement => placement.MenuId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<MenuPlacement>()
+                .HasOne(placement => placement.ParentMenu)
+                .WithMany()
+                .HasForeignKey(placement => placement.ParentMenuId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<UserRole>()

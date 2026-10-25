@@ -26,6 +26,50 @@ namespace ERP.WorkflowwServices.API.Configurations
                 tenantId = Guid.NewGuid();
             }
 
+            var moduleCatalog = new[]
+            {
+                new { Name = "Sales", Code = "SAL", Icon = "pi pi-chart-line", Category = "Operations", OrderNo = 4 },
+                new { Name = "Inventory", Code = "INV", Icon = "pi pi-box", Category = "Operations", OrderNo = 5 },
+                new { Name = "Warehouse", Code = "WH", Icon = "pi pi-warehouse", Category = "Supply Chain", OrderNo = 6 },
+                new { Name = "Supply Chain", Code = "SCM", Icon = "pi pi-truck", Category = "Supply Chain", OrderNo = 7 },
+                new { Name = "Manufacturing", Code = "MFG", Icon = "pi pi-cog", Category = "Operations", OrderNo = 8 },
+                new { Name = "CRM", Code = "CRM", Icon = "pi pi-users", Category = "Customer", OrderNo = 9 },
+                new { Name = "Human Resources", Code = "HR", Icon = "pi pi-id-card", Category = "People", OrderNo = 10 },
+                new { Name = "Payroll", Code = "PAY", Icon = "pi pi-wallet", Category = "People", OrderNo = 11 },
+                new { Name = "Project Management", Code = "PM", Icon = "pi pi-briefcase", Category = "Operations", OrderNo = 12 },
+                new { Name = "Quality Management", Code = "QM", Icon = "pi pi-check-circle", Category = "Operations", OrderNo = 13 },
+                new { Name = "Asset Management", Code = "AM", Icon = "pi pi-building", Category = "Finance", OrderNo = 14 },
+                new { Name = "Reporting & Analytics", Code = "RPT", Icon = "pi pi-chart-bar", Category = "Analytics", OrderNo = 15 }
+            };
+
+            var existingModuleCodes = (await _context.Modules.IgnoreQueryFilters()
+                .Where(module => module.TenantId == tenantId && !module.IsDeleted)
+                .Select(module => module.Code)
+                .ToListAsync())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var definition in moduleCatalog)
+            {
+                if (!existingModuleCodes.Add(definition.Code)) continue;
+
+                await _context.Modules.AddAsync(new Module
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Name = definition.Name,
+                    Code = definition.Code,
+                    ModuleKey = definition.Code.ToLowerInvariant(),
+                    ModuleType = "Standard",
+                    Version = "1.0.0",
+                    Icon = definition.Icon,
+                    Category = definition.Category,
+                    OrderNo = definition.OrderNo,
+                    IsLicensed = true,
+                    IsActive = true,
+                    IsVisible = true
+                });
+            }
+
             // ================================
             // 2. ROLE
             // ================================
@@ -74,6 +118,19 @@ namespace ERP.WorkflowwServices.API.Configurations
             var administrationMenu = await _context.MenuItems.FirstOrDefaultAsync(menu =>
                 menu.TenantId == tenantId && menu.ParentId == null && menu.Label == "Administration");
 
+            if (administrationMenu != null && !await _context.MenuPlacements.AnyAsync(placement =>
+                placement.MenuId == administrationMenu.Id))
+            {
+                await _context.MenuPlacements.AddAsync(new MenuPlacement
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    ModuleId = administrationMenu.ModuleId,
+                    MenuId = administrationMenu.Id,
+                    OrderNo = administrationMenu.OrderNo
+                });
+            }
+
             var platformMenus = new[]
             {
                 new { Label = "Company Master", Route = "/administration/companies", Icon = "pi pi-building", Permission = "PLATFORM_COMPANIES", OrderNo = 5 },
@@ -104,6 +161,19 @@ namespace ERP.WorkflowwServices.API.Configurations
                         ShowInSidebar = true
                     };
                     await _context.MenuItems.AddAsync(menu);
+                }
+
+                if (!await _context.MenuPlacements.AnyAsync(placement => placement.MenuId == menu.Id))
+                {
+                    await _context.MenuPlacements.AddAsync(new MenuPlacement
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        ModuleId = administrationMenu?.ModuleId,
+                        MenuId = menu.Id,
+                        ParentMenuId = administrationMenu?.Id,
+                        OrderNo = definition.OrderNo
+                    });
                 }
 
                 if (!await _context.MenuRoles.AnyAsync(menuRole => menuRole.MenuId == menu.Id && menuRole.RoleId == role.Id))

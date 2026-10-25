@@ -15,6 +15,15 @@ namespace ERP.WorkflowwServices.API.Models
         [Required]
         [MaxLength(150)]
         public string Label { get; set; } = string.Empty;
+        [MaxLength(50)]
+        public string Code { get; set; } = string.Empty;
+        [MaxLength(100)]
+        public string MenuKey { get; set; } = string.Empty;
+        [MaxLength(500)]
+        public string? Description { get; set; }
+        [MaxLength(150)]
+        public string? ComponentKey { get; set; }
+        public bool IsLicensed { get; set; } = false;
         [MaxLength(100)]
         public string? Icon { get; set; }
         [MaxLength(250)]

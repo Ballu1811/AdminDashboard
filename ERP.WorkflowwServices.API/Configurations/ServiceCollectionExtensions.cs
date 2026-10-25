@@ -49,6 +49,7 @@ namespace ERP.WorkflowwServices.API.Configurations
             // ===============================
             services.AddScoped<IMenuService, MenuService>();
             services.AddScoped<IModuleService, ModuleService>();
+            services.AddScoped<ISubModuleService, SubModuleService>();
             services.AddScoped<IWFEvent, WFEventService>();
             services.AddScoped<IUserManagementService, UserManagementService>();
             services.AddScoped<IRoleManagementService, RoleManagementService>();

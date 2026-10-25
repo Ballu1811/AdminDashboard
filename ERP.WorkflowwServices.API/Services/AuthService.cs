@@ -199,7 +199,7 @@ namespace ERP.WorkflowwServices.API.Services
                 Token = newAccessToken,
                 RefreshToken = newRefreshTokenValue,
                 Expiry = DateTime.UtcNow.AddMinutes(
-                    int.Parse(_config["Jwt:AccessTokenExpiryMinutes"]!)
+                    int.Parse(_config["JwtSettings:AccessTokenExpiryMinutes"]!)
                 ),
                 UserId = user.Id,
                 Username = user.Username,
