@@ -17,6 +17,15 @@ namespace ERP.WorkflowwServices.API.Services.Data
         }
 
         public DbSet<WFEvent> WFEvents { get; set; }
+        public DbSet<Department> Departments => Set<Department>();
+        public DbSet<Position> Positions => Set<Position>();
+        public DbSet<PositionRole> PositionRoles => Set<PositionRole>();
+        public DbSet<GlobalWorkflow> GlobalWorkflows => Set<GlobalWorkflow>();
+        public DbSet<WorkflowStage> WorkflowStages => Set<WorkflowStage>();
+        public DbSet<WorkflowAction> WorkflowActions => Set<WorkflowAction>();
+        public DbSet<WorkflowStageAction> WorkflowStageActions => Set<WorkflowStageAction>();
+        public DbSet<WorkflowCondition> WorkflowConditions => Set<WorkflowCondition>();
+        public DbSet<WorkflowTransition> WorkflowTransitions => Set<WorkflowTransition>();
         public DbSet<MenuItem> MenuItems { get; set; }
         public DbSet<MenuPlacement> MenuPlacements { get; set; }
         public DbSet<Module> Modules { get; set; }
@@ -44,6 +53,32 @@ namespace ERP.WorkflowwServices.API.Services.Data
             base.OnModelCreating(modelBuilder);
 
             ApplyGlobalFilters(modelBuilder);
+
+            modelBuilder.Entity<Department>().HasIndex(x => new { x.TenantId, x.CompanyId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<Department>().HasOne(x => x.ParentDepartment).WithMany(x => x.ChildDepartments).HasForeignKey(x => x.ParentDepartmentId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Department>().HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Position>().HasIndex(x => new { x.TenantId, x.CompanyId, x.PositionCode }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<Position>().HasIndex(x => new { x.TenantId, x.DepartmentId });
+            modelBuilder.Entity<Position>().HasIndex(x => new { x.TenantId, x.ParentPositionId });
+            modelBuilder.Entity<Position>().HasOne(x => x.ParentPosition).WithMany(x => x.ChildPositions).HasForeignKey(x => x.ParentPositionId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Position>().HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Position>().HasOne(x => x.Department).WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<PositionRole>().HasIndex(x => new { x.TenantId, x.PositionId, x.RoleId }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<PositionRole>().HasOne(x => x.Position).WithMany(x => x.PositionRoles).HasForeignKey(x => x.PositionId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<PositionRole>().HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<GlobalWorkflow>().HasIndex(x => new { x.TenantId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<WorkflowStage>().HasIndex(x => new { x.TenantId, x.WorkflowId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<WorkflowStage>().HasIndex(x => new { x.TenantId, x.WorkflowId, x.SequenceNumber }).HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<WorkflowAction>().HasIndex(x => new { x.TenantId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<WorkflowStageAction>().HasIndex(x => new { x.TenantId, x.WorkflowStageId, x.WorkflowActionId }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<WorkflowCondition>().HasIndex(x => new { x.TenantId, x.WorkflowId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<WorkflowTransition>().HasIndex(x => new { x.TenantId, x.WorkflowId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<WorkflowStage>().HasOne<GlobalWorkflow>().WithMany().HasForeignKey(x => x.WorkflowId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<WorkflowCondition>().HasOne<GlobalWorkflow>().WithMany().HasForeignKey(x => x.WorkflowId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<WorkflowTransition>().HasOne<GlobalWorkflow>().WithMany().HasForeignKey(x => x.WorkflowId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<WorkflowStageAction>().HasOne<WorkflowStage>().WithMany().HasForeignKey(x => x.WorkflowStageId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<WorkflowStageAction>().HasOne<WorkflowAction>().WithMany().HasForeignKey(x => x.WorkflowActionId).OnDelete(DeleteBehavior.Restrict);
 
             // ✅ Self reference safe
             modelBuilder.Entity<MenuItem>()
