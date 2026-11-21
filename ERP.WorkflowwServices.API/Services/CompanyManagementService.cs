@@ -40,7 +40,8 @@ namespace ERP.WorkflowwServices.API.Services
         public async Task<List<CompanyModuleOptionDto>> GetModulesAsync()
         {
             return await _context.Modules.AsNoTracking()
-                .Where(module => module.TenantId == _userContext.TenantId && module.IsActive && !module.IsDeleted)
+                .Where(module => module.TenantId == _userContext.TenantId && module.IsActive &&
+                    !module.IsDeleted && !module.IsSystemModule)
                 .OrderBy(module => module.Category)
                 .ThenBy(module => module.Name)
                 .Select(module => new CompanyModuleOptionDto
@@ -64,15 +65,28 @@ namespace ERP.WorkflowwServices.API.Services
                 Id = Guid.NewGuid(),
                 Name = request.Name.Trim(),
                 Code = code,
-                LegalName = NormalizeOptional(request.LegalName),
-                Email = NormalizeOptional(request.Email),
-                Phone = NormalizeOptional(request.Phone),
+                LegalName = request.LegalName.Trim(),
+                CompanyType = request.CompanyType.Trim(),
+                Industry = NormalizeOptional(request.Industry),
+                RegistrationNumber = NormalizeOptional(request.RegistrationNumber),
+                PanNumber = NormalizeOptional(request.PanNumber)?.ToUpperInvariant(),
+                Gstin = NormalizeOptional(request.Gstin)?.ToUpperInvariant(),
+                Email = request.Email.Trim(),
+                PrimaryContactName = request.PrimaryContactName.Trim(),
+                Phone = request.Phone.Trim(),
                 Website = NormalizeOptional(request.Website),
                 TaxNumber = NormalizeOptional(request.TaxNumber),
-                Address = NormalizeOptional(request.Address),
-                City = NormalizeOptional(request.City),
-                State = NormalizeOptional(request.State),
-                Country = NormalizeOptional(request.Country),
+                Address = request.Address.Trim(),
+                AddressLine2 = NormalizeOptional(request.AddressLine2),
+                City = request.City.Trim(),
+                State = request.State.Trim(),
+                PostalCode = request.PostalCode.Trim(),
+                Country = request.Country.Trim(),
+                BaseCurrency = request.BaseCurrency.Trim().ToUpperInvariant(),
+                TimeZoneId = request.TimeZoneId.Trim(),
+                FiscalYearStartMonth = request.FiscalYearStartMonth,
+                FiscalYearStartDay = request.FiscalYearStartDay,
+                Locale = request.Locale.Trim(),
                 AccessLevel = NormalizeAccessLevel(request.AccessLevel),
                 IsActive = request.IsActive,
                 ModuleAccess = modules.Select(module => new CompanyModuleAccess
@@ -115,15 +129,28 @@ namespace ERP.WorkflowwServices.API.Services
 
             company.Name = request.Name.Trim();
             company.Code = code;
-            company.LegalName = NormalizeOptional(request.LegalName);
-            company.Email = NormalizeOptional(request.Email);
-            company.Phone = NormalizeOptional(request.Phone);
+            company.LegalName = request.LegalName.Trim();
+            company.CompanyType = request.CompanyType.Trim();
+            company.Industry = NormalizeOptional(request.Industry);
+            company.RegistrationNumber = NormalizeOptional(request.RegistrationNumber);
+            company.PanNumber = NormalizeOptional(request.PanNumber)?.ToUpperInvariant();
+            company.Gstin = NormalizeOptional(request.Gstin)?.ToUpperInvariant();
+            company.Email = request.Email.Trim();
+            company.PrimaryContactName = request.PrimaryContactName.Trim();
+            company.Phone = request.Phone.Trim();
             company.Website = NormalizeOptional(request.Website);
             company.TaxNumber = NormalizeOptional(request.TaxNumber);
-            company.Address = NormalizeOptional(request.Address);
-            company.City = NormalizeOptional(request.City);
-            company.State = NormalizeOptional(request.State);
-            company.Country = NormalizeOptional(request.Country);
+            company.Address = request.Address.Trim();
+            company.AddressLine2 = NormalizeOptional(request.AddressLine2);
+            company.City = request.City.Trim();
+            company.State = request.State.Trim();
+            company.PostalCode = request.PostalCode.Trim();
+            company.Country = request.Country.Trim();
+            company.BaseCurrency = request.BaseCurrency.Trim().ToUpperInvariant();
+            company.TimeZoneId = request.TimeZoneId.Trim();
+            company.FiscalYearStartMonth = request.FiscalYearStartMonth;
+            company.FiscalYearStartDay = request.FiscalYearStartDay;
+            company.Locale = request.Locale.Trim();
             company.AccessLevel = NormalizeAccessLevel(request.AccessLevel);
             company.IsActive = request.IsActive;
 
@@ -143,6 +170,37 @@ namespace ERP.WorkflowwServices.API.Services
 
             if (modules.Count != uniqueIds.Count)
                 throw new InvalidOperationException("One or more selected modules are inactive or unavailable.");
+
+            var requirements = await _context.ModuleDependencies.AsNoTracking()
+                .Select(dependency => new { dependency.ModuleId, dependency.RequiredModuleId })
+                .ToListAsync();
+            var selected = uniqueIds.ToHashSet();
+            var availableNames = modules.ToDictionary(module => module.Id, module => module.Name);
+            var graph = requirements.GroupBy(item => item.ModuleId)
+                .ToDictionary(group => group.Key, group => group.Select(item => item.RequiredModuleId).ToArray());
+            foreach (var selectedModuleId in uniqueIds)
+            {
+                var pending = new Stack<Guid>();
+                var visited = new HashSet<Guid>();
+                pending.Push(selectedModuleId);
+                while (pending.TryPop(out var current))
+                {
+                    if (!visited.Add(current) || !graph.TryGetValue(current, out var requiredIds)) continue;
+                    foreach (var requiredId in requiredIds)
+                    {
+                        if (!selected.Contains(requiredId))
+                        {
+                            var moduleName = availableNames.GetValueOrDefault(current, "Selected module");
+                            var requiredName = await _context.Modules.AsNoTracking()
+                                .Where(module => module.Id == requiredId)
+                                .Select(module => module.Name)
+                                .FirstOrDefaultAsync() ?? "another module";
+                            throw new InvalidOperationException($"{moduleName} requires {requiredName}. Select the required module before saving.");
+                        }
+                        pending.Push(requiredId);
+                    }
+                }
+            }
 
             return modules;
         }
@@ -173,14 +231,27 @@ namespace ERP.WorkflowwServices.API.Services
                 Name = company.Name,
                 Code = company.Code,
                 LegalName = company.LegalName,
+                CompanyType = company.CompanyType,
+                Industry = company.Industry,
+                RegistrationNumber = company.RegistrationNumber,
+                PanNumber = company.PanNumber,
+                Gstin = company.Gstin,
                 Email = company.Email,
+                PrimaryContactName = company.PrimaryContactName,
                 Phone = company.Phone,
                 Website = company.Website,
                 TaxNumber = company.TaxNumber,
                 Address = company.Address,
+                AddressLine2 = company.AddressLine2,
                 City = company.City,
                 State = company.State,
+                PostalCode = company.PostalCode,
                 Country = company.Country,
+                BaseCurrency = company.BaseCurrency,
+                TimeZoneId = company.TimeZoneId,
+                FiscalYearStartMonth = company.FiscalYearStartMonth,
+                FiscalYearStartDay = company.FiscalYearStartDay,
+                Locale = company.Locale,
                 AccessLevel = company.AccessLevel,
                 IsActive = company.IsActive,
                 ModuleIds = enabledAccess.Select(access => access.ModuleId).ToList(),

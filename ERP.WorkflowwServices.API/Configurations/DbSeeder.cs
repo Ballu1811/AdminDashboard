@@ -70,6 +70,42 @@ namespace ERP.WorkflowwServices.API.Configurations
                 });
             }
 
+            // The frontend loads its platform administration menu from a module named
+            // "Administration". Keep that system module present even on a clean database.
+            var administrationModule = await _context.Modules.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(module => module.TenantId == tenantId && !module.IsDeleted &&
+                    (module.Name == "Administration" || module.Code == "ADMIN"));
+            if (administrationModule == null)
+            {
+                administrationModule = new Module
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Name = "Administration",
+                    Code = "ADMIN",
+                    ModuleKey = "administration",
+                    ModuleType = "System",
+                    Version = "1.0.0",
+                    Icon = "pi pi-cog",
+                    Category = "Platform",
+                    OrderNo = 1,
+                    IsSystemModule = true,
+                    IsLicensed = true,
+                    ShowInSidebar = true,
+                    IsActive = true,
+                    IsVisible = true
+                };
+                await _context.Modules.AddAsync(administrationModule);
+            }
+            else
+            {
+                administrationModule.Name = "Administration";
+                administrationModule.IsSystemModule = true;
+                administrationModule.ShowInSidebar = true;
+                administrationModule.IsActive = true;
+                administrationModule.IsVisible = true;
+            }
+
             // ================================
             // 2. ROLE
             // ================================
@@ -118,6 +154,38 @@ namespace ERP.WorkflowwServices.API.Configurations
             var administrationMenu = await _context.MenuItems.FirstOrDefaultAsync(menu =>
                 menu.TenantId == tenantId && menu.ParentId == null && menu.Label == "Administration");
 
+            if (administrationMenu == null)
+            {
+                administrationMenu = new MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    ModuleId = administrationModule.Id,
+                    Label = "Administration",
+                    Code = "ADMINISTRATION_ROOT",
+                    MenuKey = "administration_root",
+                    Icon = "pi pi-cog",
+                    MenuType = "group",
+                    OrderNo = 1,
+                    IsSystem = true,
+                    IsActive = true,
+                    IsVisible = true,
+                    ShowInSidebar = true
+                };
+                await _context.MenuItems.AddAsync(administrationMenu);
+            }
+            else
+            {
+                administrationMenu.ModuleId = administrationModule.Id;
+                administrationMenu.MenuType = "group";
+                if (string.IsNullOrWhiteSpace(administrationMenu.Code)) administrationMenu.Code = "ADMINISTRATION_ROOT";
+                if (string.IsNullOrWhiteSpace(administrationMenu.MenuKey)) administrationMenu.MenuKey = "administration_root";
+                administrationMenu.IsSystem = true;
+                administrationMenu.IsActive = true;
+                administrationMenu.IsVisible = true;
+                administrationMenu.ShowInSidebar = true;
+            }
+
             if (administrationMenu != null && !await _context.MenuPlacements.AnyAsync(placement =>
                 placement.MenuId == administrationMenu.Id))
             {
@@ -133,8 +201,10 @@ namespace ERP.WorkflowwServices.API.Configurations
 
             var platformMenus = new[]
             {
-                new { Label = "Company Master", Route = "/administration/companies", Icon = "pi pi-building", Permission = "PLATFORM_COMPANIES", OrderNo = 5 },
-                new { Label = "Module Master", Route = "/administration/platform/modules", Icon = "pi pi-th-large", Permission = "PLATFORM_MODULES", OrderNo = 6 }
+                new { Label = "Company Master", Code = "PLATFORM_COMPANIES", MenuKey = "platform_companies", Route = "/administration/companies", Icon = "pi pi-building", Permission = "PLATFORM_COMPANIES", ComponentKey = "company-master", OrderNo = 5 },
+                new { Label = "Module Master", Code = "PLATFORM_MODULES", MenuKey = "platform_modules", Route = "/administration/platform/modules", Icon = "pi pi-th-large", Permission = "PLATFORM_MODULES", ComponentKey = "module-master", OrderNo = 6 },
+                new { Label = "Module Dependencies", Code = "PLATFORM_MODULE_DEPENDENCIES", MenuKey = "platform_module_dependencies", Route = "/administration/module-dependencies", Icon = "pi pi-share-alt", Permission = "PLATFORM_MODULES", ComponentKey = "module-dependency-master", OrderNo = 7 },
+                new { Label = "User Role Mapping", Code = "USER_ROLE_MAPPING", MenuKey = "user_role_mapping", Route = "/administration/user-roles", Icon = "pi pi-users", Permission = "USER_ROLE_MAPPING", ComponentKey = "user-role-mapping", OrderNo = 8 }
             };
 
             foreach (var definition in platformMenus)
@@ -148,11 +218,15 @@ namespace ERP.WorkflowwServices.API.Configurations
                     {
                         Id = Guid.NewGuid(),
                         TenantId = tenantId,
+                        ModuleId = administrationMenu?.ModuleId,
                         ParentId = administrationMenu?.Id,
                         Label = definition.Label,
+                        Code = definition.Code,
+                        MenuKey = definition.MenuKey,
                         Route = definition.Route,
                         Icon = definition.Icon,
                         Permission = definition.Permission,
+                        ComponentKey = definition.ComponentKey,
                         MenuType = "link",
                         OrderNo = definition.OrderNo,
                         Target = "_self",
@@ -163,7 +237,19 @@ namespace ERP.WorkflowwServices.API.Configurations
                     await _context.MenuItems.AddAsync(menu);
                 }
 
-                if (!await _context.MenuPlacements.AnyAsync(placement => placement.MenuId == menu.Id))
+                // Sidebar module trees are queried by MenuItem.ModuleId. The placement row alone
+                // does not register this menu in the Administration module tree.
+                if (administrationMenu != null)
+                {
+                    menu.ModuleId = administrationMenu.ModuleId;
+                    menu.ParentId = administrationMenu.Id;
+                }
+                menu.ComponentKey = definition.ComponentKey;
+                if (string.IsNullOrWhiteSpace(menu.Code)) menu.Code = definition.Code;
+                if (string.IsNullOrWhiteSpace(menu.MenuKey)) menu.MenuKey = definition.MenuKey;
+
+                var menuPlacement = await _context.MenuPlacements.FirstOrDefaultAsync(placement => placement.MenuId == menu.Id);
+                if (menuPlacement == null)
                 {
                     await _context.MenuPlacements.AddAsync(new MenuPlacement
                     {
@@ -174,6 +260,12 @@ namespace ERP.WorkflowwServices.API.Configurations
                         ParentMenuId = administrationMenu?.Id,
                         OrderNo = definition.OrderNo
                     });
+                }
+                else
+                {
+                    menuPlacement.ModuleId = administrationMenu?.ModuleId;
+                    menuPlacement.ParentMenuId = administrationMenu?.Id;
+                    menuPlacement.OrderNo = definition.OrderNo;
                 }
 
                 if (!await _context.MenuRoles.AnyAsync(menuRole => menuRole.MenuId == menu.Id && menuRole.RoleId == role.Id))

@@ -17,14 +17,32 @@ namespace ERP.WorkflowwServices.API.Models
         [Required, MaxLength(50)]
         public string Code { get; set; } = string.Empty;
 
-        [MaxLength(150)]
-        public string? LegalName { get; set; }
+        [Required, MaxLength(150)]
+        public string LegalName { get; set; } = string.Empty;
 
-        [MaxLength(150)]
-        public string? Email { get; set; }
+        [Required, MaxLength(50)]
+        public string CompanyType { get; set; } = "Private Limited";
 
-        [MaxLength(30)]
-        public string? Phone { get; set; }
+        [MaxLength(100)]
+        public string? Industry { get; set; }
+
+        [MaxLength(50)]
+        public string? RegistrationNumber { get; set; }
+
+        [MaxLength(20)]
+        public string? PanNumber { get; set; }
+
+        [MaxLength(20)]
+        public string? Gstin { get; set; }
+
+        [Required, MaxLength(150)]
+        public string Email { get; set; } = string.Empty;
+
+        [Required, MaxLength(150)]
+        public string PrimaryContactName { get; set; } = string.Empty;
+
+        [Required, MaxLength(30)]
+        public string Phone { get; set; } = string.Empty;
 
         [MaxLength(200)]
         public string? Website { get; set; }
@@ -32,17 +50,38 @@ namespace ERP.WorkflowwServices.API.Models
         [MaxLength(50)]
         public string? TaxNumber { get; set; }
 
-        [MaxLength(500)]
-        public string? Address { get; set; }
+        [Required, MaxLength(500)]
+        public string Address { get; set; } = string.Empty;
 
-        [MaxLength(100)]
-        public string? City { get; set; }
+        [MaxLength(200)]
+        public string? AddressLine2 { get; set; }
 
-        [MaxLength(100)]
-        public string? State { get; set; }
+        [Required, MaxLength(100)]
+        public string City { get; set; } = string.Empty;
 
-        [MaxLength(100)]
-        public string? Country { get; set; }
+        [Required, MaxLength(100)]
+        public string State { get; set; } = string.Empty;
+
+        [Required, MaxLength(20)]
+        public string PostalCode { get; set; } = string.Empty;
+
+        [Required, MaxLength(100)]
+        public string Country { get; set; } = string.Empty;
+
+        [Required, MaxLength(3)]
+        public string BaseCurrency { get; set; } = "INR";
+
+        [Required, MaxLength(100)]
+        public string TimeZoneId { get; set; } = "Asia/Kolkata";
+
+        [Range(1, 12)]
+        public int FiscalYearStartMonth { get; set; } = 4;
+
+        [Range(1, 31)]
+        public int FiscalYearStartDay { get; set; } = 1;
+
+        [Required, MaxLength(20)]
+        public string Locale { get; set; } = "en-IN";
 
         [MaxLength(50)]
         public string AccessLevel { get; set; } = "Custom";

@@ -20,6 +20,7 @@ namespace ERP.WorkflowwServices.API.Services.Data
         public DbSet<MenuItem> MenuItems { get; set; }
         public DbSet<MenuPlacement> MenuPlacements { get; set; }
         public DbSet<Module> Modules { get; set; }
+        public DbSet<ModuleDependency> ModuleDependencies { get; set; }
         public DbSet<SubModule> SubModules { get; set; }
         public DbSet<Company> Companies { get; set; }
         public DbSet<CompanyModuleAccess> CompanyModuleAccesses { get; set; }
@@ -67,6 +68,20 @@ namespace ERP.WorkflowwServices.API.Services.Data
             modelBuilder.Entity<Module>()
                 .HasIndex(module => new { module.TenantId, module.ModuleKey })
                 .IsUnique().HasFilter("[IsDeleted] = 0");
+
+            modelBuilder.Entity<ModuleDependency>()
+                .HasIndex(dependency => new { dependency.TenantId, dependency.ModuleId, dependency.RequiredModuleId })
+                .IsUnique();
+            modelBuilder.Entity<ModuleDependency>()
+                .HasOne(dependency => dependency.Module)
+                .WithMany()
+                .HasForeignKey(dependency => dependency.ModuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<ModuleDependency>()
+                .HasOne(dependency => dependency.RequiredModule)
+                .WithMany()
+                .HasForeignKey(dependency => dependency.RequiredModuleId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<SubModule>()
                 .HasOne(subModule => subModule.Parent)

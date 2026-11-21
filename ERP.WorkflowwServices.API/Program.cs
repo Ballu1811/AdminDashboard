@@ -145,7 +145,14 @@ namespace ERP.WorkflowwServices.API
 
             app.UseCors("AllowAngular");
 
-            app.UseHttpsRedirection();            
+            // The Angular development environment calls http://localhost:5103.
+            // Redirecting those API requests to the local HTTPS endpoint makes
+            // browser calls fail when the development certificate is not trusted.
+            // Production deployments should serve the API over HTTPS.
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
 
             // 🔥 IMPORTANT ORDER
             app.UseAuthentication();   // ✅ MUST FIRST

@@ -24,11 +24,16 @@ namespace ERP.WorkflowwServices.API.Services
         // =========================
         public async Task<AuthResponseDto> Login(LoginDto dto)
         {
-            var user = await _uow.Users.Query()
+            var loginIdentifier = dto.Username.Trim();
+            var users = _uow.Users.Query()
                 .Include(x => x.Role).ThenInclude(r => r.MenuRoles).ThenInclude(m => m.Menu)
                 .Include(x => x.UserRoles).ThenInclude(userRole => userRole.Role)
-                    .ThenInclude(role => role.MenuRoles).ThenInclude(menuRole => menuRole.Menu)
-                .FirstOrDefaultAsync(x => x.Username == dto.Username);
+                    .ThenInclude(role => role.MenuRoles).ThenInclude(menuRole => menuRole.Menu);
+
+            // Keep username login compatible while also supporting the email field
+            // shown on the login screen.
+            var user = await users.FirstOrDefaultAsync(x => x.Username == loginIdentifier)
+                ?? await users.FirstOrDefaultAsync(x => x.Email == loginIdentifier);
 
             if (user == null)
                 throw new Exception("Invalid username");

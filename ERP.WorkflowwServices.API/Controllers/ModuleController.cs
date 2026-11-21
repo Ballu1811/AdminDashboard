@@ -12,9 +12,35 @@ namespace ERP.WorkflowwServices.API.Controllers
     public class ModuleController : ControllerBase
     {
         private readonly IModuleService _service;
-        public ModuleController(IModuleService service)
+        private readonly IModuleDependencyService _dependencyService;
+        public ModuleController(IModuleService service, IModuleDependencyService dependencyService)
         {
             _service = service;
+            _dependencyService = dependencyService;
+        }
+
+        [HttpGet("dependencies")]
+        public async Task<IActionResult> GetDependencies(CancellationToken cancellationToken)
+            => Ok(await _dependencyService.GetAllAsync(cancellationToken));
+
+        [HttpGet("{id:guid}/dependencies")]
+        public async Task<IActionResult> GetDependencies(Guid id, CancellationToken cancellationToken)
+        {
+            var module = await _service.GetByIdAsync(id);
+            if (module is null) return NotFound("Module not found");
+            return Ok(await _dependencyService.GetByModuleAsync(id, cancellationToken));
+        }
+
+        [HttpPut("{id:guid}/dependencies")]
+        public async Task<IActionResult> ReplaceDependencies(Guid id, [FromBody] SaveModuleDependenciesDto request, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _dependencyService.ReplaceAsync(id, request.RequiredModuleIds, cancellationToken);
+                return Ok(await _dependencyService.GetByModuleAsync(id, cancellationToken));
+            }
+            catch (KeyNotFoundException exception) { return NotFound(new { message = exception.Message }); }
+            catch (InvalidOperationException exception) { return BadRequest(new { message = exception.Message }); }
         }
 
         // ===============================
