@@ -20,6 +20,10 @@ namespace ERP.WorkflowwServices.API.Services.Data
         public DbSet<Department> Departments => Set<Department>();
         public DbSet<Position> Positions => Set<Position>();
         public DbSet<PositionRole> PositionRoles => Set<PositionRole>();
+        public DbSet<RoleGroup> RoleGroups => Set<RoleGroup>();
+        public DbSet<RoleGroupMapping> RoleGroupMappings => Set<RoleGroupMapping>();
+        public DbSet<Permission> Permissions => Set<Permission>();
+        public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
         public DbSet<GlobalWorkflow> GlobalWorkflows => Set<GlobalWorkflow>();
         public DbSet<WorkflowStage> WorkflowStages => Set<WorkflowStage>();
         public DbSet<WorkflowAction> WorkflowActions => Set<WorkflowAction>();
@@ -32,12 +36,20 @@ namespace ERP.WorkflowwServices.API.Services.Data
         public DbSet<ModuleDependency> ModuleDependencies { get; set; }
         public DbSet<SubModule> SubModules { get; set; }
         public DbSet<Company> Companies { get; set; }
+        public DbSet<Tenant> Tenants => Set<Tenant>();
         public DbSet<CompanyModuleAccess> CompanyModuleAccesses { get; set; }
+        public DbSet<Branch> Branches => Set<Branch>();
+        public DbSet<CompanyUserSettings> CompanyUserSettings => Set<CompanyUserSettings>();
+        public DbSet<UserPositionAssignment> UserPositionAssignments => Set<UserPositionAssignment>();
+        public DbSet<UserCompanyAccess> UserCompanyAccesses => Set<UserCompanyAccess>();
+        public DbSet<UserBranchAccess> UserBranchAccesses => Set<UserBranchAccess>();
+        public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
 
         #region Auth & Users
         public DbSet<Users> Users { get; set; }
         public DbSet<Roles> Roles { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
+        public DbSet<UserRoleAssignment> UserRoleAssignments => Set<UserRoleAssignment>();
         public DbSet<MenuRole> MenuRoles { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         #endregion
@@ -66,6 +78,24 @@ namespace ERP.WorkflowwServices.API.Services.Data
             modelBuilder.Entity<PositionRole>().HasIndex(x => new { x.TenantId, x.PositionId, x.RoleId }).IsUnique().HasFilter("[IsDeleted] = 0");
             modelBuilder.Entity<PositionRole>().HasOne(x => x.Position).WithMany(x => x.PositionRoles).HasForeignKey(x => x.PositionId).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<PositionRole>().HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<RoleGroup>().HasIndex(x => new { x.TenantId, x.CompanyId, x.GroupCode }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<RoleGroup>().HasIndex(x => new { x.TenantId, x.CompanyId, x.NormalizedGroupName }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<RoleGroup>().HasIndex(x => new { x.TenantId, x.DepartmentId });
+            modelBuilder.Entity<RoleGroup>().HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<RoleGroup>().HasOne(x => x.Department).WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<RoleGroupMapping>().HasIndex(x => new { x.TenantId, x.RoleGroupId, x.RoleId }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<RoleGroupMapping>().HasOne(x => x.RoleGroup).WithMany(x => x.RoleMappings).HasForeignKey(x => x.RoleGroupId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<RoleGroupMapping>().HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Permission>().HasIndex(x => new { x.TenantId, x.PermissionKey }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<Permission>().HasIndex(x => new { x.TenantId, x.ModuleId });
+            modelBuilder.Entity<Permission>().HasIndex(x => new { x.TenantId, x.SubModuleId });
+            modelBuilder.Entity<Permission>().HasIndex(x => new { x.TenantId, x.MenuId });
+            modelBuilder.Entity<Permission>().HasOne(x => x.Module).WithMany().HasForeignKey(x => x.ModuleId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Permission>().HasOne(x => x.SubModule).WithMany().HasForeignKey(x => x.SubModuleId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Permission>().HasOne(x => x.Menu).WithMany().HasForeignKey(x => x.MenuId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<RolePermission>().HasIndex(x => new { x.TenantId, x.RoleId, x.PermissionId }).IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<RolePermission>().HasOne(x => x.Role).WithMany(x => x.RolePermissions).HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<RolePermission>().HasOne(x => x.Permission).WithMany(x => x.RoleMappings).HasForeignKey(x => x.PermissionId).OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<GlobalWorkflow>().HasIndex(x => new { x.TenantId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
             modelBuilder.Entity<WorkflowStage>().HasIndex(x => new { x.TenantId, x.WorkflowId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
@@ -169,6 +199,142 @@ namespace ERP.WorkflowwServices.API.Services.Data
                 .HasForeignKey(userRole => userRole.RoleId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<Users>().HasIndex(user => new { user.TenantId, user.EmployeeCode })
+                .IsUnique().HasFilter("[IsDeleted] = 0 AND [EmployeeCode] IS NOT NULL");
+            modelBuilder.Entity<Users>().HasIndex(user => new { user.TenantId, user.CompanyId });
+            modelBuilder.Entity<Users>().HasIndex(user => new { user.TenantId, user.BranchId });
+            modelBuilder.Entity<Users>().HasIndex(user => new { user.TenantId, user.PositionId });
+            modelBuilder.Entity<Company>().HasIndex(company => new { company.TenantId, company.ParentCompanyId });
+            modelBuilder.Entity<Company>()
+                .HasOne(company => company.Tenant)
+                .WithMany()
+                .HasForeignKey(company => company.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Company>()
+                .HasOne(company => company.ParentCompany)
+                .WithMany(company => company.ChildCompanies)
+                .HasForeignKey(company => company.ParentCompanyId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Users>()
+                .HasOne(user => user.Company)
+                .WithMany()
+                .HasForeignKey(user => user.CompanyId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Users>()
+                .HasOne(user => user.Tenant)
+                .WithMany()
+                .HasForeignKey(user => user.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Users>()
+                .HasOne(user => user.Branch)
+                .WithMany()
+                .HasForeignKey(user => user.BranchId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Branch>()
+                .HasIndex(branch => new { branch.TenantId, branch.CompanyId, branch.Code })
+                .IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<Branch>()
+                .HasOne(branch => branch.Company)
+                .WithMany()
+                .HasForeignKey(branch => branch.CompanyId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<CompanyUserSettings>()
+                .HasIndex(settings => new { settings.TenantId, settings.CompanyId })
+                .IsUnique().HasFilter("[IsDeleted] = 0");
+            modelBuilder.Entity<CompanyUserSettings>()
+                .HasOne(settings => settings.Company)
+                .WithMany()
+                .HasForeignKey(settings => settings.CompanyId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<UserPositionAssignment>()
+                .HasIndex(assignment => new { assignment.TenantId, assignment.UserId, assignment.IsActive });
+            modelBuilder.Entity<UserPositionAssignment>()
+                .HasOne(assignment => assignment.User)
+                .WithMany(user => user.PositionAssignments)
+                .HasForeignKey(assignment => assignment.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<UserPositionAssignment>()
+                .HasOne(assignment => assignment.Position)
+                .WithMany()
+                .HasForeignKey(assignment => assignment.PositionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<UserInvitation>()
+                .HasIndex(invitation => invitation.TokenHash)
+                .IsUnique();
+            modelBuilder.Entity<UserInvitation>()
+                .HasIndex(invitation => new { invitation.TenantId, invitation.UserId, invitation.ExpiresAt });
+            modelBuilder.Entity<UserInvitation>()
+                .HasOne(invitation => invitation.User)
+                .WithMany(user => user.Invitations)
+                .HasForeignKey(invitation => invitation.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Users>()
+                .HasOne(user => user.Position)
+                .WithMany()
+                .HasForeignKey(user => user.PositionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<UserRoleAssignment>()
+                .HasIndex(assignment => new { assignment.TenantId, assignment.UserId, assignment.RoleId, assignment.IsActive });
+            modelBuilder.Entity<UserRoleAssignment>()
+                .HasIndex(assignment => new { assignment.TenantId, assignment.EffectiveFrom, assignment.EffectiveTo });
+            modelBuilder.Entity<UserRoleAssignment>()
+                .HasOne(assignment => assignment.User)
+                .WithMany(user => user.UserRoleAssignments)
+                .HasForeignKey(assignment => assignment.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<UserRoleAssignment>()
+                .HasOne(assignment => assignment.Role)
+                .WithMany(role => role.UserRoleAssignments)
+                .HasForeignKey(assignment => assignment.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<UserRoleAssignment>()
+                .HasOne(assignment => assignment.Company)
+                .WithMany()
+                .HasForeignKey(assignment => assignment.CompanyId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<UserRoleAssignment>()
+                .HasIndex(assignment => new { assignment.TenantId, assignment.UserId, assignment.CompanyId, assignment.IsDefault })
+                .IsUnique()
+                .HasFilter("[IsDefault] = 1 AND [IsActive] = 1 AND [IsDeleted] = 0 AND [CompanyId] IS NOT NULL");
+            modelBuilder.Entity<UserCompanyAccess>()
+                .HasIndex(access => new { access.TenantId, access.UserId, access.CompanyId, access.EffectiveFrom })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1 AND [IsDeleted] = 0");
+            modelBuilder.Entity<UserCompanyAccess>()
+                .HasIndex(access => new { access.TenantId, access.UserId })
+                .IsUnique()
+                .HasFilter("[IsDefault] = 1 AND [IsActive] = 1 AND [IsDeleted] = 0");
+            modelBuilder.Entity<UserCompanyAccess>()
+                .HasOne(access => access.User)
+                .WithMany(user => user.CompanyAccesses)
+                .HasForeignKey(access => access.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<UserCompanyAccess>()
+                .HasOne(access => access.Company)
+                .WithMany(company => company.UserAccesses)
+                .HasForeignKey(access => access.CompanyId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<UserBranchAccess>()
+                .HasIndex(access => new { access.TenantId, access.UserId, access.BranchId, access.EffectiveFrom })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1 AND [IsDeleted] = 0");
+            modelBuilder.Entity<UserBranchAccess>()
+                .HasIndex(access => new { access.TenantId, access.UserId })
+                .IsUnique()
+                .HasFilter("[IsDefault] = 1 AND [IsActive] = 1 AND [IsDeleted] = 0");
+            modelBuilder.Entity<UserBranchAccess>()
+                .HasOne(access => access.User)
+                .WithMany(user => user.BranchAccesses)
+                .HasForeignKey(access => access.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<UserBranchAccess>()
+                .HasOne(access => access.Branch)
+                .WithMany(branch => branch.UserAccesses)
+                .HasForeignKey(access => access.BranchId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<CompanyModuleAccess>()
                 .HasKey(access => new { access.CompanyId, access.ModuleId });
 
@@ -203,7 +369,8 @@ namespace ERP.WorkflowwServices.API.Services.Data
             {
                 if (entry.State == EntityState.Added)
                 {
-                    entry.Entity.TenantId = ctx.TenantId;
+                    if (entry.Entity.TenantId == Guid.Empty)
+                        entry.Entity.TenantId = ctx.TenantId;
                 }
             }
 

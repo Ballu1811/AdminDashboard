@@ -318,15 +318,105 @@ namespace ERP.WorkflowwServices.API.Services
         // ===============================
         public async Task DeleteAsync(Guid id)
         {
-            var entity = await _uow.Modules.GetByIdAsync(id);
-
-            if (entity == null)
-                throw new Exception("Module not found");
-
+            var entity = await FindIncludingDeletedAsync(id)
+                ?? throw new KeyNotFoundException("Module not found.");
+            if (entity.IsDeleted)
+                throw new InvalidOperationException("Module is already archived.");
             entity.IsDeleted = true;
-
+            entity.DeletedAt = DateTime.UtcNow;
+            entity.DeletedBy = _userContext.UserId;
             _uow.Modules.Update(entity);
             await _uow.SaveChangesAsync();
+        }
+
+        public async Task RestoreAsync(Guid id)
+        {
+            var entity = await FindIncludingDeletedAsync(id)
+                ?? throw new KeyNotFoundException("Module not found.");
+            if (!entity.IsDeleted)
+                throw new InvalidOperationException("Module is not archived.");
+            await EnsureNoActiveDuplicateAsync(entity);
+            entity.IsDeleted = false;
+            entity.DeletedAt = null;
+            entity.DeletedBy = null;
+            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedBy = _userContext.UserId;
+            await _uow.SaveChangesAsync();
+        }
+
+        public async Task<int> BulkArchiveAsync(IReadOnlyCollection<Guid> ids)
+        {
+            var selectedIds = ids.Distinct().ToHashSet();
+            if (selectedIds.Count == 0) return 0;
+
+            var modules = await _uow.Modules.Query().IgnoreQueryFilters()
+                .Where(module => selectedIds.Contains(module.Id) && module.TenantId == _userContext.TenantId)
+                .ToListAsync();
+            if (modules.Count != selectedIds.Count)
+                throw new KeyNotFoundException("One or more modules were not found.");
+            if (modules.Any(module => module.IsDeleted))
+                throw new InvalidOperationException("One or more selected modules are already archived.");
+
+            var now = DateTime.UtcNow;
+            foreach (var module in modules)
+            {
+                module.IsDeleted = true;
+                module.DeletedAt = now;
+                module.DeletedBy = _userContext.UserId;
+            }
+            await _uow.SaveChangesAsync();
+            return modules.Count;
+        }
+
+        public async Task<int> BulkRestoreAsync(IReadOnlyCollection<Guid> ids)
+        {
+            var selectedIds = ids.Distinct().ToHashSet();
+            if (selectedIds.Count == 0) return 0;
+
+            var modules = await _uow.Modules.Query().IgnoreQueryFilters()
+                .Where(module => selectedIds.Contains(module.Id) && module.TenantId == _userContext.TenantId)
+                .ToListAsync();
+            if (modules.Count != selectedIds.Count)
+                throw new KeyNotFoundException("One or more modules were not found.");
+            if (modules.Any(module => !module.IsDeleted))
+                throw new InvalidOperationException("One or more selected modules are not archived.");
+
+            if (modules.GroupBy(module => module.Name, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1)
+                || modules.GroupBy(module => module.Code, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1)
+                || modules.GroupBy(module => module.ModuleKey, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1))
+                throw new InvalidOperationException("Selected modules contain duplicate names, codes, or keys.");
+
+            foreach (var module in modules)
+                await EnsureNoActiveDuplicateAsync(module);
+
+            var now = DateTime.UtcNow;
+            foreach (var module in modules)
+            {
+                module.IsDeleted = false;
+                module.DeletedAt = null;
+                module.DeletedBy = null;
+                module.UpdatedAt = now;
+                module.UpdatedBy = _userContext.UserId;
+            }
+            await _uow.SaveChangesAsync();
+            return modules.Count;
+        }
+
+        private async Task<Module?> FindIncludingDeletedAsync(Guid id)
+        {
+            return await _uow.Modules.Query().IgnoreQueryFilters()
+                .FirstOrDefaultAsync(module => module.Id == id && module.TenantId == _userContext.TenantId);
+        }
+
+        private async Task EnsureNoActiveDuplicateAsync(Module module)
+        {
+            var duplicate = await _uow.Modules.Query().IgnoreQueryFilters().AnyAsync(candidate =>
+                candidate.TenantId == _userContext.TenantId
+                && !candidate.IsDeleted
+                && candidate.Id != module.Id
+                && (candidate.Name == module.Name || candidate.Code == module.Code || candidate.ModuleKey == module.ModuleKey));
+            if (duplicate)
+                throw new InvalidOperationException("An active module already uses this name, code, or module key.");
         }
 
         // ===============================

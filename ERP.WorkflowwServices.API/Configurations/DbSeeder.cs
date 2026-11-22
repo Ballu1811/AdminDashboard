@@ -127,6 +127,82 @@ namespace ERP.WorkflowwServices.API.Configurations
                 await _context.Roles.AddAsync(role);
             }
 
+            var companyAdminRole = await _context.Roles.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.Code == "COMPANY_ADMIN");
+            if (companyAdminRole == null)
+            {
+                companyAdminRole = new Roles
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Name = "Company Admin",
+                    Code = "COMPANY_ADMIN",
+                    Description = "Company-scoped user administration",
+                    IsSystem = false,
+                    IsDefault = false,
+                    IsEditable = false,
+                    IsActive = true,
+                    Priority = 2,
+                    ShowInUI = true
+                };
+                await _context.Roles.AddAsync(companyAdminRole);
+            }
+
+            var managementActions = new[] { "View", "Create", "Update", "Activate", "Deactivate", "Invitation" };
+            var permissionDefinitions = managementActions
+                .Select(action => new { Key = $"UserManagement.Global.{action}", Name = $"Global user management: {action}", Role = role })
+                .Concat(managementActions.Select(action => new
+                {
+                    Key = $"UserManagement.Company.{action}",
+                    Name = $"Company user management: {action}",
+                    Role = companyAdminRole
+                }))
+                .ToList();
+            var permissionKeys = permissionDefinitions.Select(item => item.Key).ToList();
+            var permissions = await _context.Permissions.IgnoreQueryFilters()
+                .Where(permission => permission.TenantId == tenantId && permissionKeys.Contains(permission.PermissionKey))
+                .ToDictionaryAsync(permission => permission.PermissionKey, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var definition in permissionDefinitions)
+            {
+                if (!permissions.TryGetValue(definition.Key, out var permission))
+                {
+                    permission = new Permission
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        ModuleId = administrationModule.Id,
+                        Module = administrationModule,
+                        PermissionName = definition.Name,
+                        PermissionKey = definition.Key,
+                        PermissionType = "Action",
+                        Description = definition.Name,
+                        IsSystemDefined = true,
+                        IsActive = true
+                    };
+                    permissions.Add(definition.Key, permission);
+                    await _context.Permissions.AddAsync(permission);
+                }
+
+                var existingMapping = await _context.RolePermissions.IgnoreQueryFilters()
+                    .AnyAsync(mapping => mapping.TenantId == tenantId
+                        && mapping.RoleId == definition.Role.Id
+                        && mapping.PermissionId == permission.Id);
+                if (!existingMapping)
+                {
+                    await _context.RolePermissions.AddAsync(new RolePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        RoleId = definition.Role.Id,
+                        Role = definition.Role,
+                        PermissionId = permission.Id,
+                        Permission = permission,
+                        IsGranted = true
+                    });
+                }
+            }
+
             // ================================
             // 3. MENU PERMISSIONS
             // ================================
@@ -285,6 +361,409 @@ namespace ERP.WorkflowwServices.API.Configurations
                 }
             }
 
+            var rolePermissionGroup = await _context.MenuItems.IgnoreQueryFilters().FirstOrDefaultAsync(menu =>
+                menu.TenantId == tenantId && !menu.IsDeleted && menu.MenuType == "group" &&
+                (menu.MenuKey == "role_permission_management" || menu.Label == "Role & Permission Management"));
+            if (rolePermissionGroup == null)
+            {
+                rolePermissionGroup = new MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    ModuleId = administrationMenu?.ModuleId,
+                    ParentId = administrationMenu?.Id,
+                    Label = "Role & Permission Management",
+                    Code = "ROLE_PERMISSION_MANAGEMENT",
+                    MenuKey = "role_permission_management",
+                    Icon = "pi pi-shield",
+                    MenuType = "group",
+                    OrderNo = 9,
+                    IsSystem = true,
+                    IsActive = true,
+                    IsVisible = true,
+                    ShowInSidebar = true
+                };
+                await _context.MenuItems.AddAsync(rolePermissionGroup);
+            }
+            rolePermissionGroup.ModuleId = administrationMenu?.ModuleId;
+            rolePermissionGroup.ParentId = administrationMenu?.Id;
+            rolePermissionGroup.Label = "Role & Permission Management";
+            rolePermissionGroup.Code = "ROLE_PERMISSION_MANAGEMENT";
+            rolePermissionGroup.MenuKey = "role_permission_management";
+            rolePermissionGroup.MenuType = "group";
+            rolePermissionGroup.OrderNo = 9;
+            rolePermissionGroup.IsSystem = true;
+            rolePermissionGroup.IsActive = true;
+            rolePermissionGroup.IsVisible = true;
+            rolePermissionGroup.ShowInSidebar = true;
+            rolePermissionGroup.IsHidden = false;
+
+            var rolePermissionPlacement = await _context.MenuPlacements.IgnoreQueryFilters().FirstOrDefaultAsync(placement =>
+                placement.TenantId == tenantId && placement.MenuId == rolePermissionGroup.Id);
+            if (rolePermissionPlacement == null)
+            {
+                await _context.MenuPlacements.AddAsync(new MenuPlacement
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    ModuleId = rolePermissionGroup.ModuleId,
+                    MenuId = rolePermissionGroup.Id,
+                    ParentMenuId = administrationMenu?.Id,
+                    OrderNo = rolePermissionGroup.OrderNo
+                });
+            }
+            else
+            {
+                rolePermissionPlacement.ModuleId = rolePermissionGroup.ModuleId;
+                rolePermissionPlacement.ParentMenuId = administrationMenu?.Id;
+                rolePermissionPlacement.OrderNo = rolePermissionGroup.OrderNo;
+                rolePermissionPlacement.IsDeleted = false;
+                rolePermissionPlacement.DeletedAt = null;
+                rolePermissionPlacement.DeletedBy = null;
+            }
+
+            var roleGroupMenu = await _context.MenuItems.IgnoreQueryFilters().FirstOrDefaultAsync(menu =>
+                menu.TenantId == tenantId && menu.Route == "/administration/role-groups");
+            if (roleGroupMenu == null)
+            {
+                roleGroupMenu = new MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Label = "Role Group Master",
+                    Code = "ROLE_GROUP_MASTER",
+                    MenuKey = "role_group_master",
+                    Route = "/administration/role-groups",
+                    Icon = "pi pi-users",
+                    Permission = "ROLE_GROUP_MASTER",
+                    ComponentKey = "role-group-master",
+                    MenuType = "link",
+                    OrderNo = 1,
+                    Target = "_self",
+                    IsActive = true,
+                    IsVisible = true,
+                    ShowInSidebar = true
+                };
+                await _context.MenuItems.AddAsync(roleGroupMenu);
+            }
+
+            roleGroupMenu.Label = "Role Group Master";
+            roleGroupMenu.Code = "ROLE_GROUP_MASTER";
+            roleGroupMenu.MenuKey = "role_group_master";
+            roleGroupMenu.Route = "/administration/role-groups";
+            roleGroupMenu.Icon = "pi pi-users";
+            roleGroupMenu.Permission = "ROLE_GROUP_MASTER";
+            roleGroupMenu.ComponentKey = "role-group-master";
+            roleGroupMenu.MenuType = "link";
+            roleGroupMenu.ModuleId = rolePermissionGroup.ModuleId ?? administrationMenu?.ModuleId;
+            roleGroupMenu.ParentId = rolePermissionGroup.Id;
+            roleGroupMenu.OrderNo = 1;
+            roleGroupMenu.IsActive = true;
+            roleGroupMenu.IsVisible = true;
+            roleGroupMenu.ShowInSidebar = true;
+            roleGroupMenu.Target = "_self";
+            roleGroupMenu.IsDeleted = false;
+            roleGroupMenu.DeletedAt = null;
+            roleGroupMenu.DeletedBy = null;
+
+            var roleGroupPlacement = await _context.MenuPlacements.IgnoreQueryFilters().FirstOrDefaultAsync(placement =>
+                placement.TenantId == tenantId && placement.MenuId == roleGroupMenu.Id);
+            if (roleGroupPlacement == null)
+            {
+                await _context.MenuPlacements.AddAsync(new MenuPlacement
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    ModuleId = roleGroupMenu.ModuleId,
+                    MenuId = roleGroupMenu.Id,
+                    ParentMenuId = rolePermissionGroup.Id,
+                    OrderNo = roleGroupMenu.OrderNo
+                });
+            }
+            else
+            {
+                roleGroupPlacement.ModuleId = roleGroupMenu.ModuleId;
+                roleGroupPlacement.ParentMenuId = rolePermissionGroup.Id;
+                roleGroupPlacement.OrderNo = roleGroupMenu.OrderNo;
+                roleGroupPlacement.IsDeleted = false;
+                roleGroupPlacement.DeletedAt = null;
+                roleGroupPlacement.DeletedBy = null;
+            }
+
+            var roleGroupPermission = await _context.MenuRoles.IgnoreQueryFilters().FirstOrDefaultAsync(menuRole =>
+                menuRole.TenantId == tenantId && menuRole.MenuId == roleGroupMenu.Id && menuRole.RoleId == role.Id);
+            if (roleGroupPermission == null)
+            {
+                await _context.MenuRoles.AddAsync(new MenuRole
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    MenuId = roleGroupMenu.Id,
+                    RoleId = role.Id,
+                    CanView = true,
+                    CanCreate = true,
+                    CanEdit = true,
+                    CanDelete = true,
+                    IsActive = true
+                });
+            }
+            else
+            {
+                roleGroupPermission.IsActive = true;
+                roleGroupPermission.IsDeleted = false;
+                roleGroupPermission.DeletedAt = null;
+                roleGroupPermission.DeletedBy = null;
+                roleGroupPermission.CanView = true;
+                roleGroupPermission.CanCreate = true;
+                roleGroupPermission.CanEdit = true;
+                roleGroupPermission.CanDelete = true;
+            }
+
+            var permissionMasterMenu = await _context.MenuItems.IgnoreQueryFilters().FirstOrDefaultAsync(menu =>
+                menu.TenantId == tenantId && menu.Route == "/administration/permissions");
+            if (permissionMasterMenu == null)
+            {
+                permissionMasterMenu = new MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Label = "Permission Master",
+                    Code = "PERMISSION_MASTER",
+                    MenuKey = "permission_master",
+                    Route = "/administration/permissions",
+                    Icon = "pi pi-shield",
+                    Permission = "PERMISSION_MASTER",
+                    ComponentKey = "permission-master",
+                    MenuType = "link",
+                    OrderNo = 2,
+                    Target = "_self",
+                    IsSystem = true,
+                    IsActive = true,
+                    IsVisible = true,
+                    ShowInSidebar = true
+                };
+                await _context.MenuItems.AddAsync(permissionMasterMenu);
+            }
+
+            permissionMasterMenu.Label = "Permission Master";
+            permissionMasterMenu.Code = "PERMISSION_MASTER";
+            permissionMasterMenu.MenuKey = "permission_master";
+            permissionMasterMenu.Route = "/administration/permissions";
+            permissionMasterMenu.Icon = "pi pi-shield";
+            permissionMasterMenu.Permission = "PERMISSION_MASTER";
+            permissionMasterMenu.ComponentKey = "permission-master";
+            permissionMasterMenu.MenuType = "link";
+            permissionMasterMenu.ModuleId = rolePermissionGroup.ModuleId ?? administrationMenu?.ModuleId;
+            permissionMasterMenu.ParentId = rolePermissionGroup.Id;
+            permissionMasterMenu.OrderNo = 2;
+            permissionMasterMenu.Target = "_self";
+            permissionMasterMenu.IsSystem = true;
+            permissionMasterMenu.IsActive = true;
+            permissionMasterMenu.IsVisible = true;
+            permissionMasterMenu.ShowInSidebar = true;
+            permissionMasterMenu.IsDeleted = false;
+            permissionMasterMenu.DeletedAt = null;
+            permissionMasterMenu.DeletedBy = null;
+
+            var permissionMasterPlacement = await _context.MenuPlacements.IgnoreQueryFilters().FirstOrDefaultAsync(placement =>
+                placement.TenantId == tenantId && placement.MenuId == permissionMasterMenu.Id);
+            if (permissionMasterPlacement == null)
+            {
+                await _context.MenuPlacements.AddAsync(new MenuPlacement
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    ModuleId = permissionMasterMenu.ModuleId,
+                    MenuId = permissionMasterMenu.Id,
+                    ParentMenuId = rolePermissionGroup.Id,
+                    OrderNo = permissionMasterMenu.OrderNo
+                });
+            }
+            else
+            {
+                permissionMasterPlacement.ModuleId = permissionMasterMenu.ModuleId;
+                permissionMasterPlacement.ParentMenuId = rolePermissionGroup.Id;
+                permissionMasterPlacement.OrderNo = permissionMasterMenu.OrderNo;
+                permissionMasterPlacement.IsDeleted = false;
+                permissionMasterPlacement.DeletedAt = null;
+                permissionMasterPlacement.DeletedBy = null;
+            }
+
+            var permissionMasterAccess = await _context.MenuRoles.IgnoreQueryFilters().FirstOrDefaultAsync(menuRole =>
+                menuRole.TenantId == tenantId && menuRole.MenuId == permissionMasterMenu.Id && menuRole.RoleId == role.Id);
+            if (permissionMasterAccess == null)
+            {
+                await _context.MenuRoles.AddAsync(new MenuRole
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    MenuId = permissionMasterMenu.Id,
+                    RoleId = role.Id,
+                    CanView = true,
+                    CanCreate = true,
+                    CanEdit = true,
+                    CanDelete = true,
+                    IsActive = true
+                });
+            }
+            else
+            {
+                permissionMasterAccess.IsActive = true;
+                permissionMasterAccess.IsDeleted = false;
+                permissionMasterAccess.DeletedAt = null;
+                permissionMasterAccess.DeletedBy = null;
+                permissionMasterAccess.CanView = true;
+                permissionMasterAccess.CanCreate = true;
+                permissionMasterAccess.CanEdit = true;
+                permissionMasterAccess.CanDelete = true;
+            }
+
+            var legacyRolePermissionMappingMenu = await _context.MenuItems.IgnoreQueryFilters().FirstOrDefaultAsync(menu =>
+                menu.TenantId == tenantId &&
+                (menu.Route == "/administration/role-group-permissions" ||
+                 menu.ComponentKey == "RoleGroupPermissionMapping" ||
+                 menu.Label == "Role Group Permission Mapping"));
+            var newRolePermissionMappingMenu = await _context.MenuItems.IgnoreQueryFilters().FirstOrDefaultAsync(menu =>
+                menu.TenantId == tenantId && menu.Route == "/administration/role-permissions");
+            var useLegacyRolePermissionMappingMenu = legacyRolePermissionMappingMenu != null;
+            var rolePermissionMappingMenu = legacyRolePermissionMappingMenu ?? newRolePermissionMappingMenu;
+            if (rolePermissionMappingMenu == null)
+            {
+                rolePermissionMappingMenu = new MenuItem
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Label = "Role Permission Mapping",
+                    Code = "ROLE_PERMISSION_MAPPING",
+                    MenuKey = "role_permission_mapping",
+                    Route = "/administration/role-permissions",
+                    Icon = "pi pi-lock",
+                    Permission = "ROLE_PERMISSION_MAPPING",
+                    ComponentKey = "role-permission-mapping",
+                    MenuType = "link",
+                    OrderNo = 3,
+                    Target = "_self",
+                    IsSystem = true,
+                    IsActive = true,
+                    IsVisible = true,
+                    ShowInSidebar = true
+                };
+                await _context.MenuItems.AddAsync(rolePermissionMappingMenu);
+            }
+
+            if (useLegacyRolePermissionMappingMenu &&
+                newRolePermissionMappingMenu != null &&
+                newRolePermissionMappingMenu.Id != rolePermissionMappingMenu.Id)
+            {
+                newRolePermissionMappingMenu.IsDeleted = true;
+                newRolePermissionMappingMenu.DeletedAt = DateTime.UtcNow;
+                newRolePermissionMappingMenu.DeletedBy = role.CreatedBy;
+
+                var duplicatePlacements = await _context.MenuPlacements.IgnoreQueryFilters()
+                    .Where(placement => placement.TenantId == tenantId && placement.MenuId == newRolePermissionMappingMenu.Id)
+                    .ToListAsync();
+                foreach (var placement in duplicatePlacements)
+                {
+                    placement.IsDeleted = true;
+                    placement.DeletedAt = DateTime.UtcNow;
+                    placement.DeletedBy = role.CreatedBy;
+                }
+
+                var duplicateMenuRoles = await _context.MenuRoles.IgnoreQueryFilters()
+                    .Where(menuRole => menuRole.TenantId == tenantId && menuRole.MenuId == newRolePermissionMappingMenu.Id)
+                    .ToListAsync();
+                foreach (var menuRole in duplicateMenuRoles)
+                {
+                    menuRole.IsDeleted = true;
+                    menuRole.DeletedAt = DateTime.UtcNow;
+                    menuRole.DeletedBy = role.CreatedBy;
+                }
+            }
+
+            rolePermissionMappingMenu.Label = useLegacyRolePermissionMappingMenu
+                ? "Role Group Permission Mapping"
+                : "Role Permission Mapping";
+            rolePermissionMappingMenu.Code = useLegacyRolePermissionMappingMenu
+                ? "ROLE_GROUP_PERMISSION_MAPPING"
+                : "ROLE_PERMISSION_MAPPING";
+            rolePermissionMappingMenu.MenuKey = useLegacyRolePermissionMappingMenu
+                ? "role_group_permission_mapping"
+                : "role_permission_mapping";
+            rolePermissionMappingMenu.Route = useLegacyRolePermissionMappingMenu
+                ? "/administration/role-group-permissions"
+                : "/administration/role-permissions";
+            rolePermissionMappingMenu.Icon = "pi pi-lock";
+            rolePermissionMappingMenu.Permission = useLegacyRolePermissionMappingMenu
+                ? "ROLE_GROUP_PERMISSION_MAPPING"
+                : "ROLE_PERMISSION_MAPPING";
+            rolePermissionMappingMenu.ComponentKey = useLegacyRolePermissionMappingMenu
+                ? "role-group-permission-mapping"
+                : "role-permission-mapping";
+            rolePermissionMappingMenu.MenuType = "link";
+            rolePermissionMappingMenu.ModuleId = rolePermissionGroup.ModuleId ?? administrationMenu?.ModuleId;
+            rolePermissionMappingMenu.ParentId = rolePermissionGroup.Id;
+            rolePermissionMappingMenu.OrderNo = 3;
+            rolePermissionMappingMenu.Target = "_self";
+            rolePermissionMappingMenu.IsSystem = true;
+            rolePermissionMappingMenu.IsActive = true;
+            rolePermissionMappingMenu.IsVisible = true;
+            rolePermissionMappingMenu.ShowInSidebar = true;
+            rolePermissionMappingMenu.IsDeleted = false;
+            rolePermissionMappingMenu.DeletedAt = null;
+            rolePermissionMappingMenu.DeletedBy = null;
+
+            var rolePermissionMappingPlacement = await _context.MenuPlacements.IgnoreQueryFilters().FirstOrDefaultAsync(placement =>
+                placement.TenantId == tenantId && placement.MenuId == rolePermissionMappingMenu.Id);
+            if (rolePermissionMappingPlacement == null)
+            {
+                await _context.MenuPlacements.AddAsync(new MenuPlacement
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    ModuleId = rolePermissionMappingMenu.ModuleId,
+                    MenuId = rolePermissionMappingMenu.Id,
+                    ParentMenuId = rolePermissionGroup.Id,
+                    OrderNo = rolePermissionMappingMenu.OrderNo
+                });
+            }
+            else
+            {
+                rolePermissionMappingPlacement.ModuleId = rolePermissionMappingMenu.ModuleId;
+                rolePermissionMappingPlacement.ParentMenuId = rolePermissionGroup.Id;
+                rolePermissionMappingPlacement.OrderNo = rolePermissionMappingMenu.OrderNo;
+                rolePermissionMappingPlacement.IsDeleted = false;
+                rolePermissionMappingPlacement.DeletedAt = null;
+                rolePermissionMappingPlacement.DeletedBy = null;
+            }
+
+            var rolePermissionMappingAccess = await _context.MenuRoles.IgnoreQueryFilters().FirstOrDefaultAsync(menuRole =>
+                menuRole.TenantId == tenantId && menuRole.MenuId == rolePermissionMappingMenu.Id && menuRole.RoleId == role.Id);
+            if (rolePermissionMappingAccess == null)
+            {
+                await _context.MenuRoles.AddAsync(new MenuRole
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    MenuId = rolePermissionMappingMenu.Id,
+                    RoleId = role.Id,
+                    CanView = true,
+                    CanCreate = true,
+                    CanEdit = true,
+                    CanDelete = true,
+                    IsActive = true
+                });
+            }
+            else
+            {
+                rolePermissionMappingAccess.IsActive = true;
+                rolePermissionMappingAccess.IsDeleted = false;
+                rolePermissionMappingAccess.DeletedAt = null;
+                rolePermissionMappingAccess.DeletedBy = null;
+                rolePermissionMappingAccess.CanView = true;
+                rolePermissionMappingAccess.CanCreate = true;
+                rolePermissionMappingAccess.CanEdit = true;
+                rolePermissionMappingAccess.CanDelete = true;
+            }
 
             // ================================
             // 4. ADMIN USER

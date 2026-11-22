@@ -63,6 +63,7 @@ namespace ERP.WorkflowwServices.API.Services
             var company = new Company
             {
                 Id = Guid.NewGuid(),
+                TenantId = _userContext.TenantId,
                 Name = request.Name.Trim(),
                 Code = code,
                 LegalName = request.LegalName.Trim(),
@@ -97,6 +98,20 @@ namespace ERP.WorkflowwServices.API.Services
             };
 
             _context.Companies.Add(company);
+            _context.CompanyUserSettings.Add(new CompanyUserSettings
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _userContext.TenantId,
+                CompanyId = company.Id,
+                Company = company,
+                AllowUserRegistration = true,
+                AllowVendorUsers = true,
+                AllowCustomerUsers = true,
+                AllowExternalUsers = true,
+                RequireEmailVerification = true,
+                RequireAdminApproval = false,
+                InvitationExpiryDays = 7
+            });
             await _context.SaveChangesAsync();
             return Map(company);
         }

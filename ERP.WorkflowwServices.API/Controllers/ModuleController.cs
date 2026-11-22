@@ -3,6 +3,7 @@ using ERP.WorkflowwServices.API.DTOs.FilterModels;
 using ERP.WorkflowwServices.API.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ERP.WorkflowwServices.API.Controllers
 {
@@ -128,10 +129,40 @@ namespace ERP.WorkflowwServices.API.Controllers
                 await _service.DeleteAsync(id);
                 return Ok("Module deleted successfully");
             }
-            catch (Exception ex)
+            catch (KeyNotFoundException exception) { return NotFound(new { message = exception.Message }); }
+            catch (InvalidOperationException exception) { return Conflict(new { message = exception.Message }); }
+            catch (DbUpdateException) { return Conflict(new { message = "Module status could not be updated." }); }
+        }
+
+        [HttpPost("{id:guid}/restore")]
+        public async Task<IActionResult> Restore(Guid id)
+        {
+            try
             {
-                return BadRequest(ex.Message);
+                await _service.RestoreAsync(id);
+                return Ok("Module restored successfully");
             }
+            catch (KeyNotFoundException exception) { return NotFound(new { message = exception.Message }); }
+            catch (InvalidOperationException exception) { return Conflict(new { message = exception.Message }); }
+            catch (DbUpdateException) { return Conflict(new { message = "Module status could not be updated." }); }
+        }
+
+        [HttpPost("bulk-archive")]
+        public async Task<IActionResult> BulkArchive([FromBody] List<Guid> ids)
+        {
+            try { return Ok(new { archived = await _service.BulkArchiveAsync(ids ?? []) }); }
+            catch (KeyNotFoundException exception) { return NotFound(new { message = exception.Message }); }
+            catch (InvalidOperationException exception) { return Conflict(new { message = exception.Message }); }
+            catch (DbUpdateException) { return Conflict(new { message = "Module status could not be updated." }); }
+        }
+
+        [HttpPost("bulk-restore")]
+        public async Task<IActionResult> BulkRestore([FromBody] List<Guid> ids)
+        {
+            try { return Ok(new { restored = await _service.BulkRestoreAsync(ids ?? []) }); }
+            catch (KeyNotFoundException exception) { return NotFound(new { message = exception.Message }); }
+            catch (InvalidOperationException exception) { return Conflict(new { message = exception.Message }); }
+            catch (DbUpdateException) { return Conflict(new { message = "Module status could not be updated." }); }
         }
     }
 }

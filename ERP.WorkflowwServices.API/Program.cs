@@ -97,6 +97,14 @@ namespace ERP.WorkflowwServices.API
             {
                 options.AddPolicy("PermissionPolicy", policy =>
                     policy.Requirements.Add(new PermissionRequirement()));
+                foreach (var action in new[] { "View", "Create", "Update", "Status", "Invitation" })
+                {
+                    options.AddPolicy($"UserManagement.{action}", policy =>
+                    {
+                        policy.RequireAuthenticatedUser();
+                        policy.AddRequirements(new UserManagementActionRequirement(action));
+                    });
+                }
             });           
 
             // ===============================
@@ -119,17 +127,25 @@ namespace ERP.WorkflowwServices.API
             using (var scope = app.Services.CreateScope())
             {
                 var services = scope.ServiceProvider;
+                var logger = services.GetRequiredService<ILogger<Program>>();
+                var db = services.GetRequiredService<WorkflowDbContext>();
                 try
                 {
-                    var db = services.GetRequiredService<WorkflowDbContext>();
                     db.Database.Migrate(); // 🔥 ensure DB ready
+                }
+                catch (Exception ex)
+                {
+                    logger.LogCritical(ex, "Database migrations failed; the API cannot start with an outdated schema.");
+                    throw;
+                }
 
+                try
+                {
                     var seeder = services.GetRequiredService<DbSeeder>();
                     seeder.SeedAsync().GetAwaiter().GetResult();
                 }
                 catch (Exception ex)
                 {
-                    var logger = services.GetRequiredService<ILogger<Program>>();
                     logger.LogError(ex, "Error while seeding database");
                 }
             }

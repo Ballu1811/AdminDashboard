@@ -28,7 +28,12 @@ namespace ERP.WorkflowwServices.API.Services
             var users = _uow.Users.Query()
                 .Include(x => x.Role).ThenInclude(r => r.MenuRoles).ThenInclude(m => m.Menu)
                 .Include(x => x.UserRoles).ThenInclude(userRole => userRole.Role)
-                    .ThenInclude(role => role.MenuRoles).ThenInclude(menuRole => menuRole.Menu);
+                    .ThenInclude(role => role.MenuRoles).ThenInclude(menuRole => menuRole.Menu)
+                .Include(x => x.UserRoleAssignments.Where(assignment => assignment.IsActive
+                    && assignment.EffectiveFrom <= DateTime.UtcNow
+                    && (!assignment.EffectiveTo.HasValue || assignment.EffectiveTo.Value >= DateTime.UtcNow)))
+                    .ThenInclude(assignment => assignment.Role)
+                    .ThenInclude(role => role!.MenuRoles).ThenInclude(menuRole => menuRole.Menu);
 
             // Keep username login compatible while also supporting the email field
             // shown on the login screen.
@@ -42,7 +47,14 @@ namespace ERP.WorkflowwServices.API.Services
                 throw new Exception("User is inactive");
 
             if (user.IsLocked)
-                throw new Exception("User is locked");
+            {
+                if (!user.LockoutEnd.HasValue || user.LockoutEnd.Value > DateTime.UtcNow)
+                    throw new Exception("User is locked");
+
+                user.IsLocked = false;
+                user.AccessFailedCount = 0;
+                user.LockoutEnd = null;
+            }
 
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
             {
@@ -63,28 +75,13 @@ namespace ERP.WorkflowwServices.API.Services
             // Reset failed attempts
             user.AccessFailedCount = 0;
             user.IsLocked = false;
+            user.LockoutEnd = null;
 
             // ================================
             // 3. 🔥 GET PERMISSIONS
             // ================================
             var assignedRoles = GetAssignedRoles(user);
-            List<string> permissions;
-            if (assignedRoles.Any(role => role.Code == "SUPER_ADMIN"))
-            {
-                // 🚀 Super Admin = ALL permissions (NO restriction)
-                permissions = await _uow.Menus.Query().Where(x => x.Permission != null && x.IsActive)
-                    .Select(x => x.Permission!).Distinct().ToListAsync();
-            }
-            else
-            {
-                permissions = assignedRoles
-                    .SelectMany(role => role.MenuRoles)
-                    .Where(menuRole => menuRole.CanView && menuRole.IsActive && menuRole.Menu != null && menuRole.Menu.IsActive)
-                    .Select(menuRole => menuRole.Menu!.Permission)
-                    .Where(permission => permission != null)
-                    .Distinct()
-                    .ToList()!;
-            }
+            var permissions = await GetEffectivePermissionsAsync(user, assignedRoles);
 
             // ================================
             // 4. GENERATE TOKENS
@@ -151,10 +148,21 @@ namespace ERP.WorkflowwServices.API.Services
                 .Include(x => x.Role).ThenInclude(r => r.MenuRoles).ThenInclude(m => m.Menu)
                 .Include(x => x.UserRoles).ThenInclude(userRole => userRole.Role)
                     .ThenInclude(role => role.MenuRoles).ThenInclude(menuRole => menuRole.Menu)
+                .Include(x => x.UserRoleAssignments.Where(assignment => assignment.IsActive
+                    && assignment.EffectiveFrom <= DateTime.UtcNow
+                    && (!assignment.EffectiveTo.HasValue || assignment.EffectiveTo.Value >= DateTime.UtcNow)))
+                    .ThenInclude(assignment => assignment.Role)
+                    .ThenInclude(role => role!.MenuRoles).ThenInclude(menuRole => menuRole.Menu)
                 .FirstOrDefaultAsync(x => x.Id == existingToken.UserId);
 
             if (user == null)
                 throw new Exception("User not found");
+
+            if (!user.IsActive || user.IsLocked)
+            {
+                await RevokeAllUserTokens(user.Id);
+                throw new Exception(user.IsLocked ? "User is locked" : "User is inactive");
+            }
 
             // 🔥 Revoke old token
             existingToken.IsRevoked = true;
@@ -181,18 +189,7 @@ namespace ERP.WorkflowwServices.API.Services
 
             // 🔑 Permissions
             var assignedRoles = GetAssignedRoles(user);
-            var permissions = assignedRoles.Any(role => role.Code == "SUPER_ADMIN")
-                ? await _uow.Menus.Query()
-                    .Where(menu => menu.Permission != null && menu.IsActive)
-                    .Select(menu => menu.Permission!)
-                    .Distinct()
-                    .ToListAsync()
-                : assignedRoles
-                    .SelectMany(role => role.MenuRoles)
-                    .Where(menuRole => menuRole.CanView && menuRole.IsActive && menuRole.Menu != null && menuRole.Menu.IsActive)
-                    .Select(menuRole => menuRole.Menu!.Permission!)
-                    .Distinct()
-                    .ToList();
+            var permissions = await GetEffectivePermissionsAsync(user, assignedRoles);
 
             var newAccessToken = _jwt.GenerateToken(user, permissions);
 
@@ -233,16 +230,49 @@ namespace ERP.WorkflowwServices.API.Services
 
         private static List<Roles> GetAssignedRoles(Users user)
         {
-            var roles = user.UserRoles
-                .Where(userRole => userRole.Role != null)
-                .Select(userRole => userRole.Role!)
+            var today = DateTime.UtcNow.Date;
+            return user.UserRoleAssignments
+                .Where(assignment => assignment.IsActive && !assignment.IsDeleted
+                    && assignment.EffectiveFrom.Date <= today
+                    && (!assignment.EffectiveTo.HasValue || assignment.EffectiveTo.Value.Date >= today)
+                    && assignment.Role != null && assignment.Role.IsActive && !assignment.Role.IsDeleted)
+                .Select(assignment => assignment.Role!)
                 .DistinctBy(role => role.Id)
                 .ToList();
+        }
 
-            if (user.Role != null && roles.All(role => role.Id != user.Role.Id))
-                roles.Add(user.Role);
+        private async Task<List<string>> GetEffectivePermissionsAsync(Users user, IReadOnlyCollection<Roles> assignedRoles)
+        {
+            var roleIds = assignedRoles.Select(role => role.Id).ToHashSet();
+            var menuPermissions = assignedRoles.Any(role => role.Code == "SUPER_ADMIN")
+                ? await _uow.Menus.Query()
+                    .Where(menu => menu.Permission != null && menu.IsActive && !menu.IsDeleted)
+                    .Select(menu => menu.Permission!)
+                    .Distinct()
+                    .ToListAsync()
+                : assignedRoles
+                    .SelectMany(role => role.MenuRoles)
+                    .Where(menuRole => menuRole.CanView && menuRole.IsActive
+                        && menuRole.Menu != null && menuRole.Menu.IsActive && !menuRole.Menu.IsDeleted)
+                    .Select(menuRole => menuRole.Menu!.Permission)
+                    .Where(permission => permission != null)
+                    .Select(permission => permission!)
+                    .Distinct()
+                    .ToList();
 
-            return roles;
+            var rolePermissions = roleIds.Count == 0
+                ? []
+                : await _uow.Repository<RolePermission, Guid>().Query()
+                    .Where(mapping => mapping.TenantId == user.TenantId
+                        && roleIds.Contains(mapping.RoleId)
+                        && mapping.IsGranted
+                        && mapping.Role.IsActive
+                        && mapping.Permission.IsActive
+                        && !mapping.Permission.IsDeleted)
+                    .Select(mapping => mapping.Permission.PermissionKey)
+                    .Distinct()
+                    .ToListAsync();
+            return menuPermissions.Union(rolePermissions, StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         // =========================

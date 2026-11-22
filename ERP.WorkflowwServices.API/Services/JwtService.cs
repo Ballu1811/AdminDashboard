@@ -35,10 +35,16 @@ namespace ERP.WorkflowwServices.API.Services
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
-            var assignedRoles = user.UserRoles
-                .Where(userRole => userRole.Role != null)
-                .Select(userRole => userRole.Role!.Name)
-                .Append(user.Role?.Name)
+            if (user.CompanyId.HasValue)
+                claims.Add(new Claim("companyId", user.CompanyId.Value.ToString()));
+
+            var today = DateTime.UtcNow.Date;
+            var assignedRoles = user.UserRoleAssignments
+                .Where(assignment => assignment.IsActive && !assignment.IsDeleted
+                    && assignment.EffectiveFrom.Date <= today
+                    && (!assignment.EffectiveTo.HasValue || assignment.EffectiveTo.Value.Date >= today)
+                    && assignment.Role != null && assignment.Role.IsActive && !assignment.Role.IsDeleted)
+                .Select(assignment => assignment.Role!.Name)
                 .Where(roleName => !string.IsNullOrWhiteSpace(roleName))
                 .Distinct();
             claims.AddRange(assignedRoles.Select(roleName => new Claim(ClaimTypes.Role, roleName!)));

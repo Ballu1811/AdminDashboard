@@ -24,6 +24,14 @@ namespace ERP.WorkflowwServices.API.Models
         [MaxLength(100)]
         public string? Code { get; set; }   // ADMIN, HR_MANAGER
 
+        [MaxLength(20)]
+        public string ScopeLevel { get; set; } = "Tenant";
+
+        public Guid? CompanyId { get; set; }
+
+        [ForeignKey(nameof(CompanyId))]
+        public Company? Company { get; set; }
+
         [MaxLength(250)]
         public string? Description { get; set; }
         // ================= HIERARCHY =================
@@ -57,9 +65,11 @@ namespace ERP.WorkflowwServices.API.Models
 
         // ================= RELATIONS =================
         public ICollection<MenuRole> MenuRoles { get; set; } = new List<MenuRole>();
+        public ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();
 
         public ICollection<Users> Users { get; set; } = new List<Users>();
 
         public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+        public ICollection<UserRoleAssignment> UserRoleAssignments { get; set; } = new List<UserRoleAssignment>();
     }
 }

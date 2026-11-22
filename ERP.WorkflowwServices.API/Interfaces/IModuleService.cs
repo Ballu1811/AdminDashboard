@@ -12,6 +12,9 @@ namespace ERP.WorkflowwServices.API.Interfaces
         Task<ModuleDto> CreateAsync(ModuleCreateDto dto);
         Task UpdateAsync(ModuleUpdateDto dto);
         Task DeleteAsync(Guid id);
+        Task RestoreAsync(Guid id);
+        Task<int> BulkArchiveAsync(IReadOnlyCollection<Guid> ids);
+        Task<int> BulkRestoreAsync(IReadOnlyCollection<Guid> ids);
         Task<bool> ExistsAsync(string name, string code);
     }
 }

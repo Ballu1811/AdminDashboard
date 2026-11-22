@@ -52,10 +52,17 @@ public sealed class PositionSaveRequest : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (!new[] { "Executive", "Management", "Operational", "Administrative", "Technical" }.Contains(PositionCategory, StringComparer.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(PositionName))
+            yield return new ValidationResult("Position name is required.", [nameof(PositionName)]);
+        if (string.IsNullOrWhiteSpace(PositionCode))
+            yield return new ValidationResult("Position code is required.", [nameof(PositionCode)]);
+        if (string.IsNullOrWhiteSpace(PositionCategory) ||
+            !new[] { "Executive", "Management", "Operational", "Administrative", "Technical" }.Contains(PositionCategory, StringComparer.OrdinalIgnoreCase))
             yield return new ValidationResult("Choose a valid position category.", [nameof(PositionCategory)]);
         if (DepartmentId == Guid.Empty) yield return new ValidationResult("Department is required.", [nameof(DepartmentId)]);
-        if (RoleIds.Count != RoleIds.Distinct().Count()) yield return new ValidationResult("Role mappings cannot contain duplicates.", [nameof(RoleIds)]);
+        if (RoleIds is null) yield return new ValidationResult("Role mappings are required.", [nameof(RoleIds)]);
+        else if (RoleIds.Count != RoleIds.Distinct().Count())
+            yield return new ValidationResult("Role mappings cannot contain duplicates.", [nameof(RoleIds)]);
     }
 }
 
@@ -63,6 +70,7 @@ public sealed class PositionFilter : BasePaging
 {
     public uint? Status { get; set; }
     public string? KeyWord { get; set; }
+    public Guid? CompanyId { get; set; }
     public Guid? DepartmentId { get; set; }
     public long? ParentPositionId { get; set; }
     public string? SortField { get; set; }
@@ -74,4 +82,5 @@ public sealed class PositionHierarchyDto : PositionDto
     public List<PositionHierarchyDto> Children { get; set; } = [];
 }
 
-public sealed record PositionDropdownDto(long Id, string PositionName, string PositionCode, long? ParentPositionId, int? PositionLevel);
+public sealed record PositionDropdownDto(long Id, string PositionName, string PositionCode, Guid DepartmentId, long? ParentPositionId, int? PositionLevel, Guid? CompanyId);
+public sealed record PositionCodeAvailabilityDto(bool IsAvailable);

@@ -54,8 +54,16 @@ namespace ERP.WorkflowwServices.API.Configurations
             services.AddScoped<IWFEvent, WFEventService>();
             services.AddScoped<IWorkflowConfigurationService, WorkflowConfigurationService>();
             services.AddScoped<IPositionService, PositionService>();
+            services.AddScoped<IRoleGroupService, RoleGroupService>();
+            services.AddScoped<IPermissionService, PermissionService>();
+            services.AddScoped<IRolePermissionMappingService, RolePermissionMappingService>();
             services.AddScoped<IDepartmentService, DepartmentService>();
             services.AddScoped<IUserManagementService, UserManagementService>();
+            services.AddScoped<IUserDashboardService, UserDashboardService>();
+            services.AddScoped<IUserPositionAssignmentService, UserPositionAssignmentService>();
+            services.AddScoped<IUserInvitationService, UserInvitationService>();
+            services.AddScoped<IEmailSender, SmtpEmailSender>();
+            services.AddScoped<IUserRoleAssignmentService, UserRoleAssignmentService>();
             services.AddScoped<IRoleManagementService, RoleManagementService>();
             services.AddScoped<ICompanyManagementService, CompanyManagementService>();
 
@@ -66,6 +74,7 @@ namespace ERP.WorkflowwServices.API.Configurations
             // 🔐 PERMISSION HANDLER
             // ===============================
             services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
+            services.AddSingleton<IAuthorizationHandler, UserManagementActionHandler>();
 
             services.AddScoped<DbSeeder>();
 

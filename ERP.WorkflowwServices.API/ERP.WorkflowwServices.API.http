@@ -1,6 +1,400 @@
 @ERP.WorkflowwServices.API_HostAddress = http://localhost:5103
+@token = replace-with-a-superadmin-access-token
 
 GET {{ERP.WorkflowwServices.API_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+### List user role assignments
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/user-role-assignments?pageNumber=1&pageSize=20&sortColumn=effectiveFrom&sortDirection=desc
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Get assignment summary
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/user-role-assignments/summary
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Search eligible users
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/user-role-assignments/users?search=&pageNumber=1&pageSize=25
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Get assignable roles
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/user-role-assignments/roles
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Get departments
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/user-role-assignments/departments
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Get a user's assignments
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/user-role-assignments/user/11111111-1111-1111-1111-111111111111
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Get a user's assignment history
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/user-role-assignments/user/11111111-1111-1111-1111-111111111111/history
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Get an assignment by ID
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/user-role-assignments/22222222-2222-2222-2222-222222222222
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Create or replace a user's role assignments
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/user-role-assignments
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "userId": "11111111-1111-1111-1111-111111111111",
+  "assignments": [
+    {
+      "roleId": "33333333-3333-3333-3333-333333333333",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "isActive": true,
+      "remarks": "Initial assignment"
+    }
+  ]
+}
+
+###
+
+### Update a user's role assignments
+PUT {{ERP.WorkflowwServices.API_HostAddress}}/api/user-role-assignments/user/11111111-1111-1111-1111-111111111111
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "userId": "11111111-1111-1111-1111-111111111111",
+  "assignments": [
+    {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "roleId": "33333333-3333-3333-3333-333333333333",
+      "effectiveFrom": "2026-01-01",
+      "effectiveTo": null,
+      "isActive": true,
+      "remarks": "Updated assignment"
+    }
+  ]
+}
+
+###
+
+### Deactivate an assignment
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/user-role-assignments/22222222-2222-2222-2222-222222222222/deactivate
+Authorization: Bearer {{token}}
+
+###
+
+### Deactivate selected assignments
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/user-role-assignments/bulk-deactivate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+[
+  "22222222-2222-2222-2222-222222222222"
+]
+
+###
+
+### Archive a module
+DELETE {{ERP.WorkflowwServices.API_HostAddress}}/api/module/11111111-1111-1111-1111-111111111111
+
+###
+
+### Restore a module
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/module/11111111-1111-1111-1111-111111111111/restore
+Content-Type: application/json
+
+{}
+
+###
+
+### Archive selected modules
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/module/bulk-archive
+Content-Type: application/json
+
+[
+  "11111111-1111-1111-1111-111111111111"
+]
+
+###
+
+### Restore selected modules
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/module/bulk-restore
+Content-Type: application/json
+
+[
+  "11111111-1111-1111-1111-111111111111"
+]
+
+###
+
+### Check position code availability
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/positions/code-availability?code=FINANCE_MANAGER&companyId=11111111-1111-1111-1111-111111111111
+Accept: application/json
+
+###
+
+### Bulk restore positions
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/positions/bulk-restore
+Content-Type: application/json
+
+[
+  101,
+  102
+]
+
+###
+
+### List role groups
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/role-groups?pageNumber=1&pageSize=20&search=Finance&status=0&sortField=groupName&sortOrder=asc
+Accept: application/json
+
+###
+
+### Get active role group dropdown
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/role-groups/dropdown
+Accept: application/json
+
+###
+
+### Get role group details
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/role-groups/1
+Accept: application/json
+
+###
+
+### Get roles assigned to a role group
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/role-groups/1/roles
+Accept: application/json
+
+###
+
+### Create a sample Finance Team role group (replace roleIds with existing role IDs)
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/role-groups
+Content-Type: application/json
+
+{
+  "companyId": null,
+  "groupName": "Finance Team",
+  "groupCode": "FINANCE_TEAM",
+  "description": "Finance roles available for workflow participation.",
+  "departmentId": null,
+  "remarks": null,
+  "isActive": true,
+  "roleIds": [
+    "00000000-0000-0000-0000-000000000001"
+  ]
+}
+
+###
+
+### Update a role group (replace IDs with an existing group and role)
+PUT {{ERP.WorkflowwServices.API_HostAddress}}/api/role-groups/1
+Content-Type: application/json
+
+{
+  "companyId": null,
+  "groupName": "Finance Team",
+  "groupCode": "FINANCE_TEAM",
+  "description": "Finance roles available for workflow participation.",
+  "departmentId": null,
+  "remarks": null,
+  "isActive": true,
+  "roleIds": [
+    "00000000-0000-0000-0000-000000000001"
+  ]
+}
+
+###
+
+### Archive a role group
+PATCH {{ERP.WorkflowwServices.API_HostAddress}}/api/role-groups/1/archive
+
+###
+
+### Restore a role group
+PATCH {{ERP.WorkflowwServices.API_HostAddress}}/api/role-groups/1/restore
+
+###
+
+### Bulk archive role groups
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/role-groups/bulk-archive
+Content-Type: application/json
+
+[1, 2]
+
+###
+
+### Bulk restore role groups
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/role-groups/bulk-restore
+Content-Type: application/json
+
+[1, 2]
+
+###
+
+### List permissions
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/permissions?pageNumber=1&pageSize=20&status=0&sortField=permissionName&sortOrder=asc
+Accept: application/json
+
+###
+
+### Get supported permission types
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/permissions/types
+Accept: application/json
+
+###
+
+### Get active permissions
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/permissions/dropdown
+Accept: application/json
+
+###
+
+### Get permission details (replace with an existing permission ID)
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/permissions/00000000-0000-0000-0000-000000000001
+Accept: application/json
+
+###
+
+### Create a permission (replace moduleId with an active module ID)
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/permissions
+Content-Type: application/json
+
+{
+  "moduleId": "00000000-0000-0000-0000-000000000001",
+  "subModuleId": null,
+  "menuId": null,
+  "permissionName": "View Purchase Requisition",
+  "permissionKey": "PURCHASE.REQUISITION.VIEW",
+  "permissionType": "View",
+  "description": "View purchase requisitions.",
+  "sortOrder": 0,
+  "isActive": true
+}
+
+###
+
+### Update a permission (replace IDs with existing values)
+PUT {{ERP.WorkflowwServices.API_HostAddress}}/api/permissions/00000000-0000-0000-0000-000000000001
+Content-Type: application/json
+
+{
+  "moduleId": "00000000-0000-0000-0000-000000000001",
+  "subModuleId": null,
+  "menuId": null,
+  "permissionName": "View Purchase Requisition",
+  "permissionKey": "PURCHASE.REQUISITION.VIEW",
+  "permissionType": "View",
+  "description": "View purchase requisitions.",
+  "sortOrder": 0,
+  "isActive": true
+}
+
+###
+
+### Archive a permission
+PATCH {{ERP.WorkflowwServices.API_HostAddress}}/api/permissions/00000000-0000-0000-0000-000000000001/archive
+
+###
+
+### Restore a permission
+PATCH {{ERP.WorkflowwServices.API_HostAddress}}/api/permissions/00000000-0000-0000-0000-000000000001/unarchive
+
+###
+
+### Bulk archive permissions
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/permissions/bulk-archive
+Content-Type: application/json
+
+[
+  "00000000-0000-0000-0000-000000000001",
+  "00000000-0000-0000-0000-000000000002"
+]
+
+###
+
+### Bulk restore permissions
+POST {{ERP.WorkflowwServices.API_HostAddress}}/api/permissions/bulk-restore
+Content-Type: application/json
+
+[
+  "00000000-0000-0000-0000-000000000001",
+  "00000000-0000-0000-0000-000000000002"
+]
+
+###
+
+### Get roles available for permission mapping
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/role-permissions/roles
+Accept: application/json
+
+###
+
+### Get active permission hierarchy
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/role-permissions/permissions/tree
+Accept: application/json
+
+###
+
+### Load a role's permission state
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/role-permissions/role/00000000-0000-0000-0000-000000000001
+Accept: application/json
+
+###
+
+### Save full mapping (include one state for every active permission returned by the role endpoint)
+PUT {{ERP.WorkflowwServices.API_HostAddress}}/api/role-permissions/role/00000000-0000-0000-0000-000000000001
+Content-Type: application/json
+
+{
+  "permissions": [
+    {
+      "permissionId": "00000000-0000-0000-0000-000000000001",
+      "isGranted": true
+    },
+    {
+      "permissionId": "00000000-0000-0000-0000-000000000002",
+      "isGranted": false
+    }
+  ]
+}
+
+###
+
+### Get the authorization-scoped user dashboard
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/user-dashboard?fromDate=2026-01-01T00:00:00Z&toDate=2026-02-01T00:00:00Z
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Invalid dashboard date range (expected 400 Bad Request)
+GET {{ERP.WorkflowwServices.API_HostAddress}}/api/user-dashboard?fromDate=2026-02-01T00:00:00Z&toDate=2026-01-01T00:00:00Z
+Authorization: Bearer {{token}}
+Accept: application/json

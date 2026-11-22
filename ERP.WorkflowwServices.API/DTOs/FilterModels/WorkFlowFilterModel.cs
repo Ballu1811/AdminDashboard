@@ -11,6 +11,7 @@
     {
         public uint? Status { get; set; }
         public string? KeyWord { get; set; }
+        public Guid? UserCompanyId { get; set; }
         public bool ExportExcel { get; set; } = false;
         public uint? CompanyId { get; set; }
         public int? PageId { get; set; }
@@ -24,6 +25,7 @@
         (!string.IsNullOrWhiteSpace(KeyWord) && KeyWord != "null")
         || Status.HasValue
         || CompanyId.HasValue
+        || UserCompanyId.HasValue
         || PageId.HasValue
         || ModuleId.HasValue
         || ParentId.HasValue;

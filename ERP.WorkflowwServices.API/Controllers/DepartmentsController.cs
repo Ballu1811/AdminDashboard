@@ -16,7 +16,8 @@ public sealed class DepartmentsController(IDepartmentService departments) : Cont
         Ok(await departments.GetAllAsync(filter, cancellationToken));
 
     [HttpGet("dropdown")]
-    public async Task<IActionResult> Dropdown(CancellationToken cancellationToken) => Ok(await departments.GetDropdownAsync(cancellationToken));
+    public async Task<IActionResult> Dropdown([FromQuery] Guid? companyId, CancellationToken cancellationToken) =>
+        Ok(await departments.GetDropdownAsync(companyId, cancellationToken));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)

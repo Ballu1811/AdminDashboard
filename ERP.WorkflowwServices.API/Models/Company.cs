@@ -1,15 +1,19 @@
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using ERP.WorkflowwServices.API.Interfaces.Common;
 
 namespace ERP.WorkflowwServices.API.Models
 {
     [Table("tblCompanies")]
     [Index(nameof(Code), IsUnique = true)]
-    public sealed class Company : BaseAuditableEntity
+    public sealed class Company : BaseAuditableEntity, ITenantEntity
     {
         [Key]
         public Guid Id { get; set; }
+
+        public Guid TenantId { get; set; }
+        public Guid? ParentCompanyId { get; set; }
 
         [Required, MaxLength(150)]
         public string Name { get; set; } = string.Empty;
@@ -89,5 +93,9 @@ namespace ERP.WorkflowwServices.API.Models
         public bool IsActive { get; set; } = true;
 
         public ICollection<CompanyModuleAccess> ModuleAccess { get; set; } = new List<CompanyModuleAccess>();
+        public Tenant Tenant { get; set; } = null!;
+        public Company? ParentCompany { get; set; }
+        public ICollection<Company> ChildCompanies { get; set; } = new List<Company>();
+        public ICollection<UserCompanyAccess> UserAccesses { get; set; } = new List<UserCompanyAccess>();
     }
 }

@@ -16,6 +16,7 @@ namespace ERP.WorkflowwServices.API.Models
 
         // 🔥 Multi-tenant
         public Guid TenantId { get; set; }
+        public Tenant Tenant { get; set; } = null!;
 
         // ================= BASIC =================
         [Required]
@@ -24,6 +25,20 @@ namespace ERP.WorkflowwServices.API.Models
 
         [MaxLength(150)]
         public string? DisplayName { get; set; }
+
+        [MaxLength(80)]
+        public string? FirstName { get; set; }
+
+        [MaxLength(80)]
+        public string? MiddleName { get; set; }
+
+        [MaxLength(80)]
+        public string? LastName { get; set; }
+
+        [MaxLength(30)]
+        public string? Gender { get; set; }
+
+        public DateTime? DateOfBirth { get; set; }
 
         [Required]
         [MaxLength(100)]
@@ -45,6 +60,15 @@ namespace ERP.WorkflowwServices.API.Models
 
         public bool IsMobileVerified { get; set; } = false;
 
+        [MaxLength(30)]
+        public string AuthenticationType { get; set; } = "Local";
+
+        public bool RequireEmailVerification { get; set; } = true;
+
+        public bool RequiresApproval { get; set; }
+
+        public DateTime? AccountExpiresAt { get; set; }
+
         // ================= ROLE =================
         public Guid RoleId { get; set; }
 
@@ -52,9 +76,33 @@ namespace ERP.WorkflowwServices.API.Models
         public Roles? Role { get; set; }
 
         public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+        public ICollection<UserRoleAssignment> UserRoleAssignments { get; set; } = new List<UserRoleAssignment>();
+        public ICollection<UserCompanyAccess> CompanyAccesses { get; set; } = new List<UserCompanyAccess>();
+        public ICollection<UserBranchAccess> BranchAccesses { get; set; } = new List<UserBranchAccess>();
 
         // ================= ORGANIZATION =================
+        public Guid? CompanyId { get; set; }
+
+        [ForeignKey(nameof(CompanyId))]
+        public Company? Company { get; set; }
+
+        public Guid? BranchId { get; set; }
+
+        [ForeignKey(nameof(BranchId))]
+        public Branch? Branch { get; set; }
+
+        [MaxLength(50)]
+        public string UserType { get; set; } = "Internal";
+
         public Guid? DepartmentId { get; set; }
+
+        [MaxLength(50)]
+        public string? EmployeeCode { get; set; }
+
+        public long? PositionId { get; set; }
+
+        [ForeignKey(nameof(PositionId))]
+        public Position? Position { get; set; }
 
         public Guid? ReportingToUserId { get; set; }
 
@@ -62,6 +110,19 @@ namespace ERP.WorkflowwServices.API.Models
         public Users? ReportingTo { get; set; }
 
         public ICollection<Users> Subordinates { get; set; } = new List<Users>();
+        public DateTime? JoiningDate { get; set; }
+
+        [MaxLength(50)]
+        public string? EmploymentType { get; set; }
+
+        [MaxLength(200)]
+        public string? WorkLocation { get; set; }
+
+        [MaxLength(1000)]
+        public string? Remarks { get; set; }
+
+        public ICollection<UserPositionAssignment> PositionAssignments { get; set; } = new List<UserPositionAssignment>();
+        public ICollection<UserInvitation> Invitations { get; set; } = new List<UserInvitation>();
 
         // ================= SECURITY =================
         public int AccessFailedCount { get; set; } = 0;

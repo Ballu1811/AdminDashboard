@@ -11,5 +11,5 @@ public interface IDepartmentService
     Task<DepartmentDto?> UpdateAsync(Guid id, DepartmentSaveRequest request, CancellationToken cancellationToken = default);
     Task ArchiveAsync(Guid id, CancellationToken cancellationToken = default);
     Task RestoreAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<List<DepartmentDropdownDto>> GetDropdownAsync(CancellationToken cancellationToken = default);
+    Task<List<DepartmentDropdownDto>> GetDropdownAsync(Guid? companyId = null, CancellationToken cancellationToken = default);
 }

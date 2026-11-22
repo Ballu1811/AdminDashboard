@@ -106,9 +106,15 @@ public sealed class DepartmentService(WorkflowDbContext db, IUserContext user) :
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    public Task<List<DepartmentDropdownDto>> GetDropdownAsync(CancellationToken cancellationToken = default) => db.Departments.IgnoreQueryFilters().AsNoTracking()
-        .Where(x => x.TenantId == user.TenantId && x.IsActive && !x.IsDeleted).OrderBy(x => x.Name)
-        .Select(x => new DepartmentDropdownDto(x.Id, x.Name, x.Code, x.ParentDepartmentId)).ToListAsync(cancellationToken);
+    public Task<List<DepartmentDropdownDto>> GetDropdownAsync(Guid? companyId = null, CancellationToken cancellationToken = default)
+    {
+        var query = db.Departments.IgnoreQueryFilters().AsNoTracking()
+            .Where(x => x.TenantId == user.TenantId && x.IsActive && !x.IsDeleted);
+        if (companyId.HasValue) query = query.Where(x => x.CompanyId == companyId);
+        return query.OrderBy(x => x.Name)
+            .Select(x => new DepartmentDropdownDto(x.Id, x.Name, x.Code, x.ParentDepartmentId, x.CompanyId))
+            .ToListAsync(cancellationToken);
+    }
 
     private async Task ValidateAsync(DepartmentSaveRequest request, Guid? id, CancellationToken ct)
     {

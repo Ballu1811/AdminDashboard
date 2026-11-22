@@ -39,4 +39,4 @@ public sealed class DepartmentFilter : BasePaging
     public string? SortOrder { get; set; }
 }
 
-public sealed record DepartmentDropdownDto(Guid Id, string Name, string Code, Guid? ParentDepartmentId);
+public sealed record DepartmentDropdownDto(Guid Id, string Name, string Code, Guid? ParentDepartmentId, Guid? CompanyId);
